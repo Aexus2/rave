@@ -144,12 +144,7 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
 <div id="chat" class="ui">
   <div id="chatHead"><span>💬 Sohbet</span><small>dokun, büyüt</small></div>
   <div id="chatLog"></div>
-  <div class="rules">
-    <b>kız</b> ya da <b>erkek</b> yaz → kıyafetin değişir<br>
-    <b>2.4k</b> gibi tutar yaz → liste'ye girersin<br>
-    Tutar ya da <b>liq</b> yazmak liq sayılır, gerisi sohbete gider<br>
-    Her liq <b>3 saat</b> sürer, en fazla <b>12</b> · En büyük liq <b>DJ kabinine</b> çıkar 🎧
-  </div>
+  <div class="rules" id="rules"></div>
 </div>
 
 <div id="bottom" class="ui">
@@ -182,6 +177,7 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
   </div>
   <label>Slogan</label><input id="aTag">
   <label>LED ekran yazısı</label><input id="aScr">
+  <label>Sohbet altındaki yazı (her satır ayrı, **kalın** için iki yıldız)</label><textarea id="aRules" rows="4" style="width:100%;padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);outline:none;resize:vertical;font:inherit;color:inherit"></textarea>
   <h4>DJ kabini</h4>
   <div class="row">
    <button class="btn" id="aDjAuto">🏆 Otomatik (en büyük liq)</button>
@@ -488,7 +484,7 @@ $('#renBtn').onclick=openOverlay;$('#ovRen').onclick=()=>{$('#nameIn').select();
 $('#joinBtn').onclick=()=>{
   const n=$('#nameIn').value.trim().slice(0,18);if(n){me.n=n;store.set('name',n)}
   $('#ov').classList.add('gone');
-  if(!started){started=true;me.jt=Date.now();renderLb();sysChat(`🎧 ${me.n} piste girdi. Tutar yaz, liq ol, kabine çık!`)}
+  if(!started){started=true;me.jt=Date.now();renderLb();sysChat(`🎧 ${me.n} piste girdi. Mesaj at, en iyi dansçı ol! 🕺`)}
   initAudio();ac&&ac.resume&&ac.resume().catch(()=>{});
   music.start();
   pushPresence();writeDb();
@@ -742,11 +738,12 @@ function drawLabel(d,now){
 
 // ---------- config ----------
 const DEF_CFG={title1:'LİQ',title2:'RAVE',tagline:'Liq olduysan, stop yediysen — piste gel, DJ kabini seni bekliyor!',screenText:'LİQ RAVE',
-  djMode:'auto',djName:'DJ MARGIN CALL',djSub:'şu an kabinde 🎧',shuffle:false,tracks:[{type:'synth',title:'Dahili Techno',bpm:0}]};
+  djMode:'auto',djName:'DJ MARGIN CALL',djSub:'şu an kabinde 🎧',rules:"💬 Mesaj at — en çok mesaj atan **en iyi dansçı** olur 👑\n🕺 Piste tıkla, istediğin yerde dans et\n🙌 Butonlarla eller havaya, zıpla, **lazer şov** yap\n🎧 Kabindeki DJ'e selam ver, partiye katıl!",shuffle:false,tracks:[{type:'synth',title:'Dahili Techno',bpm:0}]};
 let CFG=JSON.parse(JSON.stringify(DEF_CFG));
 function sanitizeCfg(c){
   const o={...DEF_CFG,...(c&&typeof c==='object'?c:{})};
   for(const k of ['title1','title2','tagline','screenText','djName','djSub'])o[k]=String(o[k]??'').slice(0,120);
+  o.rules=String(o.rules??'').slice(0,800);
   o.djMode=o.djMode==='manual'?'manual':'auto';o.shuffle=!!o.shuffle;
   o.tracks=(Array.isArray(o.tracks)?o.tracks:[]).filter(t=>t&&['synth','mp3','yt'].includes(t.type)).map(t=>({type:t.type,title:String(t.title||'').slice(0,80),src:String(t.src||'').slice(0,400),bpm:clamp(+t.bpm||0,0,220)}));
   if(!o.tracks.length)o.tracks=[{type:'synth',title:'Dahili Techno',bpm:0}];
@@ -756,6 +753,8 @@ function applyCfg(c,{restartMusic}={}){
   CFG=sanitizeCfg(c);
   $('#ttl').innerHTML=esc(CFG.title1)+(CFG.title2?' <em>'+esc(CFG.title2)+'</em>':'');
   $('#tagl').textContent=CFG.tagline;
+  $('#rules').innerHTML=esc(CFG.rules).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+  $('#rules').style.display=CFG.rules.trim()?'':'none';
   document.title=[CFG.title1,CFG.title2].filter(Boolean).join(' ').trim()||'Liq Rave';
   $('.card h2').textContent='🎧 '+document.title;
   if(restartMusic&&started){music.idx=-1;music.next()}
@@ -763,7 +762,7 @@ function applyCfg(c,{restartMusic}={}){
 async function loadCfg(){
   try{const r=await fetch('config.json?v='+Date.now(),{cache:'no-store'});if(r.ok)applyCfg(await r.json())}catch(e){}
 }
-loadCfg();
+applyCfg(DEF_CFG);loadCfg();
 
 // ---------- music (synth / mp3 / youtube) ----------
 function ytId(u){u=String(u).trim();if(/^[\w-]{11}$/.test(u))return u;const m=u.match(/(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([\w-]{11})/);return m?m[1]:null}
@@ -844,7 +843,7 @@ let ADM=null,admPending=new Map(),admRemember=false;
 const defRepo=(()=>{const h=location.hostname;if(h.endsWith('.github.io')){const o=h.split('.')[0];const seg=location.pathname.split('/').filter(Boolean)[0];return o+'/'+(seg||h)}return'Aexus2/rave'})();
 function openAdmin(){
   ADM=JSON.parse(JSON.stringify(CFG));
-  $('#aT1').value=ADM.title1;$('#aT2').value=ADM.title2;$('#aTag').value=ADM.tagline;$('#aScr').value=ADM.screenText;
+  $('#aT1').value=ADM.title1;$('#aT2').value=ADM.title2;$('#aTag').value=ADM.tagline;$('#aScr').value=ADM.screenText;$('#aRules').value=ADM.rules||'';
   $('#aDj').value=ADM.djName;$('#aDjSub').value=ADM.djSub;
   $('#aRepo').value=store.get('adm_repo',defRepo);const tk=store.get('adm_tok','');$('#aTok').value=tk;admRemember=!!tk;
   $('#aRem').classList.toggle('on',admRemember);
@@ -875,7 +874,7 @@ $('#aSynthAdd').onclick=()=>{ADM.tracks.push({type:'synth',title:'Dahili Techno'
 $('#aDjAuto').onclick=()=>{ADM.djMode='auto';admDj()};$('#aDjMan').onclick=()=>{ADM.djMode='manual';admDj()};
 $('#aShuf').onclick=()=>{ADM.shuffle=!ADM.shuffle;admDj()};
 $('#aRem').onclick=()=>{admRemember=!admRemember;$('#aRem').classList.toggle('on',admRemember);if(!admRemember)store.set('adm_tok','')};
-function admCollect(){Object.assign(ADM,{title1:$('#aT1').value,title2:$('#aT2').value,tagline:$('#aTag').value,screenText:$('#aScr').value,djName:$('#aDj').value,djSub:$('#aDjSub').value});return ADM}
+function admCollect(){Object.assign(ADM,{title1:$('#aT1').value,title2:$('#aT2').value,tagline:$('#aTag').value,screenText:$('#aScr').value,rules:$('#aRules').value,djName:$('#aDj').value,djSub:$('#aDjSub').value});return ADM}
 function admPreview(){const changedMusic=JSON.stringify(CFG.tracks)!==JSON.stringify(admCollect().tracks);applyCfg(JSON.parse(JSON.stringify(ADM)),{restartMusic:changedMusic})}
 $('#aPrev').onclick=()=>{admPreview();$('#aStat').textContent='👀 Önizleme uygulandı (sadece sende). Herkes görsün diye “Yayınla”.'};
 $('#aClose').onclick=()=>$('#adm').classList.remove('open');
