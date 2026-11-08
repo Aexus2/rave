@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Admin paneli · Rave</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--pink:#ff2bd6;--cyan:#22f3ff;--lime:#b6ff2e;--line:rgba(255,255,255,.12);--txt:#f3eaff;--dim:#a99bc4}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;color:var(--txt);font-family:'Space Grotesk',system-ui,sans-serif;background:#05020c radial-gradient(ellipse at top,#2a0a4a,#05020c 60%) fixed}
+button,select,input,textarea{font:inherit;color:inherit}
+a{color:var(--cyan)}
+.btn{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap;font-size:13px;transition:.15s;display:inline-block}
+.btn:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3)}
+.btn.on{background:linear-gradient(90deg,rgba(255,43,214,.35),rgba(34,243,255,.3));border-color:rgba(255,255,255,.4)}
+.btn:disabled{opacity:.5;cursor:wait}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.wrap{display:flex;justify-content:center;padding:24px 10px 40px}
+.modal{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.acard{width:min(700px,calc(100vw - 20px));max-height:92vh;overflow:auto;background:#12082a;border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:18px 18px 14px;user-select:text}
+.acard h3{font-family:'Unbounded';margin:0 0 4px;font-size:20px}
+.acard h4{margin:16px 0 8px;font-size:14px;color:var(--cyan);text-transform:uppercase;letter-spacing:.08em}
+.acard label{display:block;font-size:12px;color:var(--dim);margin:8px 0 3px}
+.acard input[type=text],.acard input[type=password],.acard input[type=number],.acard input:not([type]){width:100%;padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);outline:none}
+.acard input:focus{border-color:var(--cyan)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.trk{display:grid;grid-template-columns:28px 1fr 64px auto;gap:6px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.07)}
+.trk input{padding:6px 8px!important}
+.trk .tb{display:flex;gap:3px}.trk .tb .btn{padding:5px 8px;font-size:12px}
+.trk small{display:block;color:var(--dim);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;grid-column:2/5}
+.addrow{display:flex;gap:6px;margin-top:8px}.addrow input{flex:1}
+.abar{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:16px;position:sticky;bottom:-14px;background:#12082a;padding:10px 0}
+.pri{background:linear-gradient(90deg,var(--pink),#8a3dff)!important;border:0!important;font-weight:700}
+#aStat{font-size:13px;color:var(--lime);margin-top:6px;min-height:18px;white-space:pre-wrap}
+.note{font-size:12px;color:var(--dim);line-height:1.45}
+
+.acard{max-height:none;overflow:visible}
+.abar{bottom:0;border-top:1px solid var(--line)}
+@media (max-width:760px){.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <div class="acard">
+  <h3>🛠 Admin paneli</h3>
+  <div class="note">“Önizle” siteyi yeni sekmede sadece sana gösterir. “Yayınla” ayarları ve MP3'leri GitHub reposuna kaydeder; ~1 dk sonra herkes görür.</div>
+  <h4>Site</h4>
+  <div class="g2">
+   <div><label>Başlık (düz kısım)</label><input id="aT1"></div>
+   <div><label>Başlık (renkli kısım)</label><input id="aT2"></div>
+  </div>
+  <label>Slogan</label><input id="aTag">
+  <label>LED ekran yazısı</label><input id="aScr">
+  <label>Sohbet altındaki yazı (her satır ayrı, **kalın** için iki yıldız)</label><textarea id="aRules" rows="4" style="width:100%;padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);outline:none;resize:vertical;font:inherit;color:inherit"></textarea>
+  <h4>DJ kabini</h4>
+  <div class="row">
+   <button class="btn" id="aDjAuto">👑 Otomatik (en iyi dansçı)</button>
+   <button class="btn" id="aDjMan">✏️ Sabit isim</button>
+  </div>
+  <label>DJ adı <span id="aDjHint">(otomatikte kimse yoksa bu görünür)</span></label><input id="aDj" placeholder="DJ MARGIN CALL">
+  <label>Kabin alt yazısı (sabit isimde)</label><input id="aDjSub" placeholder="şu an kabinde 🎧">
+  <h4>Müzik listesi</h4>
+  <div id="player" style="display:none;margin-bottom:8px"><audio id="aud" controls style="width:100%"></audio><div id="ytp" style="aspect-ratio:16/9;width:100%;max-width:360px;display:none"></div></div>
+  <div id="aTracks"></div>
+  <div class="addrow"><input id="aYt" placeholder="YouTube linki yapıştır (youtube.com/watch?v=… / youtu.be/… / shorts)"><button class="btn" id="aYtAdd">▶️ Ekle</button></div>
+  <div class="addrow"><input type="file" id="aMp3" accept="audio/mpeg,audio/mp3,audio/*" multiple style="flex:1"><button class="btn" id="aSynthAdd">🎛 Dahili techno ekle</button></div>
+  <div class="row" style="margin-top:8px"><button class="btn" id="aShuf">🔀 Karışık çal</button></div>
+  <div class="note" style="margin-top:6px">BPM: ışıkların temposu. MP3'te ışıklar bas vuruşlarına kendisi de oturur. YouTube'da spektrum gerçek değil, BPM'e göre oynar.</div>
+  <h4>GitHub (Yayınla için)</h4>
+  <div class="g2">
+   <div><label>Repo (kullanıcı/repo)</label><input id="aRepo"></div>
+   <div><label>Token (sadece bu repo, Contents: Read and write)</label><input type="password" id="aTok" placeholder="github_pat_…"></div>
+  </div>
+  <div class="row"><button class="btn" id="aRem">💾 Token'ı bu tarayıcıda hatırla</button><a class="note" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">→ token oluştur</a></div>
+  <div id="aStat"></div>
+  <div class="abar">
+   <a class="btn" href="./" style="text-decoration:none">← Siteye dön</a>
+   <button class="btn" id="aPrev">👀 Önizle (sadece bende)</button>
+   <button class="btn pri" id="aPub">🚀 Yayınla (herkes için)</button>
+  </div>
+ </div>
+
+</div>
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store={get(k,d){try{const v=localStorage.getItem('liqrave_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('liqrave_'+k,JSON.stringify(v))}catch(e){}}};
+function ytId(u){u=String(u).trim();if(/^[\w-]{11}$/.test(u))return u;const m=u.match(/(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([\w-]{11})/);return m?m[1]:null}
+const DEF_CFG={title1:'X',title2:'RAVE',tagline:'Rave Parti Yapıyoruz',screenText:'X RAVE',djMode:'auto',djName:'DJ Aexus',djSub:'şu an kabinde 🎧',rules:"💬 Mesaj at — en çok mesaj atan **en iyi dansçı** olur 👑\n🕺 Piste tıkla, istediğin yerde dans et\n🙌 Butonlarla eller havaya, zıpla, **lazer şov** yap\n🎧 Kabindeki DJ'e selam ver, partiye katıl!",shuffle:false,tracks:[{type:'synth',title:'Dahili Techno',bpm:0}]};
+function sanitizeCfg(c){
+  const o={...DEF_CFG,...(c&&typeof c==='object'?c:{})};
+  for(const k of ['title1','title2','tagline','screenText','djName','djSub'])o[k]=String(o[k]??'').slice(0,120);
+  o.rules=String(o.rules??'').slice(0,800);
+  o.djMode=o.djMode==='manual'?'manual':'auto';o.shuffle=!!o.shuffle;
+  o.tracks=(Array.isArray(o.tracks)?o.tracks:[]).filter(t=>t&&['synth','mp3','yt'].includes(t.type)).map(t=>({type:t.type,title:String(t.title||'').slice(0,80),src:String(t.src||'').slice(0,400),bpm:clamp(+t.bpm||0,0,220)}));
+  if(!o.tracks.length)o.tracks=[{type:'synth',title:'Dahili Techno',bpm:0}];
+  return o;
+}
+let CFG=sanitizeCfg(DEF_CFG);
+
+let ADM=null,admPending=new Map(),admRemember=false;
+const defRepo=(()=>{const h=location.hostname;if(h.endsWith('.github.io')){const o=h.split('.')[0];const seg=location.pathname.split('/').filter(Boolean)[0];return o+'/'+(seg||h)}return'Aexus2/rave'})();
+function openAdmin(){
+  ADM=JSON.parse(JSON.stringify(CFG));
+  $('#aT1').value=ADM.title1;$('#aT2').value=ADM.title2;$('#aTag').value=ADM.tagline;$('#aScr').value=ADM.screenText;$('#aRules').value=ADM.rules||'';
+  $('#aDj').value=ADM.djName;$('#aDjSub').value=ADM.djSub;
+  $('#aRepo').value=store.get('adm_repo',defRepo);const tk=store.get('adm_tok','');$('#aTok').value=tk;admRemember=!!tk;
+  $('#aRem').classList.toggle('on',admRemember);
+  admDj();admRender();$('#aStat').textContent='';
+}
+function admDj(){$('#aDjAuto').classList.toggle('on',ADM.djMode==='auto');$('#aDjMan').classList.toggle('on',ADM.djMode==='manual');$('#aShuf').classList.toggle('on',ADM.shuffle);
+  $('#aDjHint').textContent=ADM.djMode==='auto'?'(otomatikte henüz kimse mesaj atmadıysa bu görünür)':'(kabinde hep bu yazar)'}
+function admRender(){
+  $('#aTracks').innerHTML=ADM.tracks.map((t,i)=>`<div class="trk" data-i="${i}">
+   <span>${t.type==='yt'?'▶️':t.type==='mp3'?'🎵':'🎛'}</span>
+   <input data-f="title" value="${esc(t.title)}" placeholder="Şarkı adı">
+   <input data-f="bpm" type="number" min="0" max="220" value="${t.bpm||''}" placeholder="${t.type==='synth'?'Oto':'128'}" title="BPM">
+   <span class="tb"><button class="btn" data-a="play" title="Şimdi çal">▶</button><button class="btn" data-a="up">↑</button><button class="btn" data-a="dn">↓</button><button class="btn" data-a="del">🗑</button></span>
+   <small>${t.type==='synth'?'Tarayıcıda üretilen techno, tempo Ayarlar\'dan':admPending.has(t.src)?'⏳ yüklenmeyi bekliyor: '+esc(admPending.get(t.src).name)+' ('+(admPending.get(t.src).size/1048576).toFixed(1)+' MB)':esc(t.src)}</small></div>`).join('')||'<div class="note">Liste boş — en az bir şarkı ekle.</div>';
+}
+$('#aTracks').addEventListener('input',e=>{const r=e.target.closest('.trk');if(!r)return;const t=ADM.tracks[+r.dataset.i];const f=e.target.dataset.f;if(f==='title')t.title=e.target.value;if(f==='bpm')t.bpm=+e.target.value||0});
+$('#aTracks').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const i=+b.closest('.trk').dataset.i,a=b.dataset.a,T=ADM.tracks;
+  if(a==='del'){T.splice(i,1)}else if(a==='up'&&i>0){[T[i-1],T[i]]=[T[i],T[i-1]]}else if(a==='dn'&&i<T.length-1){[T[i+1],T[i]]=[T[i],T[i+1]]}
+  else if(a==='play'){listen(T[i]);return}
+  admRender()});
+$('#aYtAdd').onclick=()=>{const v=$('#aYt').value.trim();const id=ytId(v);if(!id){$('#aStat').textContent='❌ Geçerli bir YouTube linki değil';return}
+  ADM.tracks.push({type:'yt',title:'YouTube '+id,src:'https://youtu.be/'+id,bpm:128});$('#aYt').value='';admRender();$('#aStat').textContent='✅ YouTube eklendi — istersen adını düzelt'};
+$('#aYt').addEventListener('keydown',e=>{if(e.key==='Enter')$('#aYtAdd').click()});
+$('#aMp3').onchange=e=>{for(const f of e.target.files){if(f.size>45*1048576){$('#aStat').textContent=`❌ ${f.name} çok büyük (en fazla 45 MB)`;continue}
+  const url=URL.createObjectURL(f);admPending.set(url,f);ADM.tracks.push({type:'mp3',title:f.name.replace(/\.[^.]+$/,''),src:url,bpm:128})}
+  e.target.value='';admRender()};
+$('#aSynthAdd').onclick=()=>{ADM.tracks.push({type:'synth',title:'Dahili Techno',bpm:0});admRender()};
+$('#aDjAuto').onclick=()=>{ADM.djMode='auto';admDj()};$('#aDjMan').onclick=()=>{ADM.djMode='manual';admDj()};
+$('#aShuf').onclick=()=>{ADM.shuffle=!ADM.shuffle;admDj()};
+$('#aRem').onclick=()=>{admRemember=!admRemember;$('#aRem').classList.toggle('on',admRemember);if(!admRemember)store.set('adm_tok','')};
+function admCollect(){Object.assign(ADM,{title1:$('#aT1').value,title2:$('#aT2').value,tagline:$('#aTag').value,screenText:$('#aScr').value,rules:$('#aRules').value,djName:$('#aDj').value,djSub:$('#aDjSub').value});return ADM}
+function listen(t){const P=$('#player'),A=$('#aud'),Y=$('#ytp');P.style.display='block';A.pause();Y.innerHTML='';Y.style.display='none';A.style.display='none';
+  if(t.type==='mp3'){A.style.display='block';A.src=t.src;A.play().catch(()=>{})}
+  else if(t.type==='yt'){const id=ytId(t.src);if(id){Y.style.display='block';Y.innerHTML=`<iframe src="https://www.youtube.com/embed/${id}?autoplay=1" style="width:100%;height:100%;border:0;border-radius:10px" allow="autoplay; encrypted-media" allowfullscreen></iframe>`}}
+  else{P.style.display='none';$('#aStat').textContent='🎛 Dahili techno sitede çalar (Önizle ile dinleyebilirsin)'}}
+$('#aPrev').onclick=()=>{const c=JSON.parse(JSON.stringify(admCollect()));const pend=c.tracks.filter(t=>t.src.startsWith('blob:')).length;c.tracks=c.tracks.filter(t=>!t.src.startsWith('blob:'));store.set('preview',sanitizeCfg(c));
+  $('#aStat').textContent='👀 Önizleme yeni sekmede açıldı (sadece sende). Herkes görsün diye “Yayınla”.'+(pend?`\n⚠️ Yüklenmemiş ${pend} MP3 önizlemede çalmaz — Yayınla'dan sonra çalar.`:'');
+  const w=window.open('./#onizleme','_blank');if(!w)location.href='./#onizleme'};
+const b64txt=s=>btoa(unescape(encodeURIComponent(s)));
+const b64file=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(f)});
+async function ghPut(repo,tok,path,content,msg){
+  const api=`https://api.github.com/repos/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+  const H={Authorization:'Bearer '+tok,Accept:'application/vnd.github+json'};
+  let sha;const g=await fetch(api+'?t='+Date.now(),{headers:H});if(g.ok){sha=(await g.json()).sha}else if(g.status===401)throw new Error('Token geçersiz (401)');
+  const r=await fetch(api,{method:'PUT',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({message:msg,content,sha})});
+  if(!r.ok){let m='';try{m=(await r.json()).message}catch(e){}throw new Error(`${path}: ${r.status} ${m}`)}
+}
+$('#aPub').onclick=async()=>{
+  const repo=$('#aRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,''),tok=$('#aTok').value.trim(),st=$('#aStat');
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){st.textContent='❌ Repo “kullanıcı/repo” biçiminde olmalı';return}
+  if(!tok){st.textContent='❌ Yayınlamak için GitHub token gerekli';return}
+  store.set('adm_repo',repo);if(admRemember)store.set('adm_tok',tok);
+  const btn=$('#aPub');btn.disabled=true;
+  try{
+    const cfg=JSON.parse(JSON.stringify(admCollect()));
+    for(const t of cfg.tracks){
+      if(t.type==='mp3'&&admPending.has(t.src)){
+        const f=admPending.get(t.src);const slug=(f.name.replace(/\.[^.]+$/,'').toLocaleLowerCase('tr').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ı/g,'i').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'sarki').slice(0,40);
+        const path=`music/${Date.now().toString(36)}-${slug}.mp3`;
+        st.textContent=`⏫ Yükleniyor: ${f.name} (${(f.size/1048576).toFixed(1)} MB)…`;
+        await ghPut(repo,tok,path,await b64file(f),'Müzik eklendi: '+f.name);
+        const old=t.src;t.src=path;admPending.delete(old);ADM.tracks.forEach(x=>{if(x.src===old)x.src=path});
+      }
+    }
+    st.textContent='⏫ Ayarlar kaydediliyor…';
+    await ghPut(repo,tok,'config.json',b64txt(JSON.stringify(sanitizeCfg(cfg),null,2)+'\n'),'Admin: ayarlar güncellendi');
+    CFG=sanitizeCfg(cfg);store.set('preview',null);admRender();
+    st.innerHTML='🚀 Yayınlandı! GitHub Pages ~1 dakika içinde güncellenir, sonra herkes görür. <a href="./">Siteye git →</a>';
+  }catch(e){st.textContent='❌ Hata: '+(e.message||e)+'\nToken\'ın bu repoya “Contents: Read and write” izni olmalı.'}
+  btn.disabled=false;
+};
+
+fetch('config.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(c=>{if(c)CFG=sanitizeCfg(c);openAdmin()}).catch(()=>openAdmin());
+})();
+</script>
+</body>
+</html>
