@@ -136,6 +136,7 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
     <button class="btn" data-e="jump">🦘 Zıpla</button>
     <button class="btn" data-e="laser">🔦 Lazer şov</button>
     <button class="btn" data-e="hey">📢 Hey hey hey</button>
+    <button class="btn" id="fogBtn" title="Her 20 mesajda 1 sis hakkı">🌫️ Sis 0/20</button>
     <button class="btn" id="meBtn">📍 Beni göster</button>
   </div>
   <form id="form" autocomplete="off">
@@ -185,7 +186,7 @@ const dancers=new Map(); // key -> dancer
 dancers.set('me',me);
 const dbDocs=new Map(); // uid -> {n,g,liqs}
 const chatLog=[];
-let slow=store.get('slow',false), musicOn=true, zoom=1, zoomT=1, showMeUntil=0, laserBurst=0, started=false, lbSort='dance';
+let slow=store.get('slow',false), musicOn=true, zoom=1, zoomT=1, showMeUntil=0, laserBurst=0, fogUntil=0, fogPuffs=[], started=false, lbSort='dance';
 
 // ---------- canvas ----------
 const cv=$('#c'),ctx=cv.getContext('2d');
@@ -276,7 +277,36 @@ function handleInput(text){
   if(low==='erkek'){me.g='e';store.set('g','e');toast('🕺 Kıyafet: erkek');pushPresence();return}
   sayChat(text);
 }
-function sayChat(t){me.m=t;me.mt=Date.now();me.mc=(me.mc||0)+1;store.set('mc',me.mc);addChat(me.n,t,true);pushPresence();writeDb();renderLb()}
+function sayChat(t){const before=fogLeft();me.m=t;me.mt=Date.now();me.mc=(me.mc||0)+1;store.set('mc',me.mc);addChat(me.n,t,true);pushPresence();writeDb();renderLb();
+  if(fogLeft()>before){toast('🌫️ Sis makinesi hakkı kazandın!');sysChat(`🌫️ ${me.n} 20 mesaja ulaştı — sis makinesi hakkı kazandı!`)}updFogBtn()}
+// ---------- fog machine ----------
+const FOG_EVERY=20,FOG_MS=3000;
+function fogLeft(){return Math.max(0,Math.floor((me.mc||0)/FOG_EVERY)-(+store.get('fogUsed',0)||0))}
+function updFogBtn(){const b=$('#fogBtn');if(!b)return;const n=fogLeft();b.classList.toggle('on',n>0);
+  b.textContent=n>0?`🌫️ Sis makinesi ×${n}`:`🌫️ Sis ${(me.mc||0)%FOG_EVERY}/${FOG_EVERY}`;b.title=n>0?'Bas, ortam 3 saniye sis olsun':'Her 20 mesajda 1 sis hakkı kazanırsın'}
+function triggerFog(who){
+  const now=performance.now();if(now<fogUntil-FOG_MS*.5)return;
+  fogUntil=now+FOG_MS;fogPuffs=[];
+  for(let i=0;i<(slow?14:34);i++)fogPuffs.push({x:Math.random(),y:Math.random()*.95+.05,r:rnd(.18,.42),vx:rnd(-.06,.06),vy:rnd(-.04,.01),h:rnd(0,360)});
+  if(who)sysChat(`🌫️ ${who} sis makinesini çalıştırdı!`);
+  if(ac&&musicOn&&noiseBuf){const t=ac.currentTime;const n=ac.createBufferSource();n.buffer=noiseBuf;n.loop=true;const f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=2500;f.Q.value=.6;
+    const g=ac.createGain();g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.25);g.gain.setValueAtTime(.22,t+1.2);g.gain.exponentialRampToValueAtTime(0.0001,t+2.4);
+    n.connect(f);f.connect(g);g.connect(master.gain.value>0?master:ac.destination);n.start(t);n.stop(t+2.5)}
+}
+function drawFog(now,hue){
+  if(now>fogUntil)return;const el=FOG_MS-(fogUntil-now);
+  const a=el<400?el/400:el>FOG_MS-900?(FOG_MS-el)/900:1;
+  for(const p of fogPuffs){p.x+=p.vx*.016;p.y+=p.vy*.016;
+    const x=p.x*W,y=floorTop*.4+p.y*(H-floorTop*.4),r=p.r*Math.max(W,H)*(1+el/FOG_MS*.4);
+    const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(225,215,245,${.26*a})`);g.addColorStop(.6,`rgba(190,175,225,${.12*a})`);g.addColorStop(1,'rgba(180,160,220,0)');
+    ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  for(let i=0;i<3;i++){const x=W*(.2+i*.3)+Math.sin(now/600+i)*W*.1,y=H*.65;const g=ctx.createRadialGradient(x,y,0,x,y,H*.5);g.addColorStop(0,`hsla(${hue+i*90},100%,60%,${.14*a})`);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
+  ctx.restore();
+}
+$('#fogBtn').onclick=()=>{if(!started)return;if(fogLeft()<1){toast(`🌫️ ${FOG_EVERY-(me.mc||0)%FOG_EVERY} mesaj daha at`);return}
+  store.set('fogUsed',(+store.get('fogUsed',0)||0)+1);me.e='fog';me.et=Date.now();pushPresence();triggerFog(me.n);updFogBtn()};
+setTimeout(updFogBtn,0);
 function addChat(n,t,mine){chatLog.push({n,t,mine});if(chatLog.length>80)chatLog.shift();renderChat()}
 function sysChat(t){chatLog.push({sys:true,t});if(chatLog.length>80)chatLog.shift();renderChat()}
 function renderChat(){const el=$('#chatLog');el.innerHTML=chatLog.map(c=>c.sys?`<div class="cl sys">${esc(c.t)}</div>`:`<div class="cl${c.mine?' me':''}"><b>${esc(c.n)}:</b> ${esc(c.t)}</div>`).join('');el.scrollTop=el.scrollHeight}
@@ -327,7 +357,7 @@ function onPeers(peers){
     d.uid=s.uid;d.n=String(s.n||'Raver').slice(0,18);d.g=s.g==='k'?'k':'e';d.tx=clamp(+s.x||0,-.95,.95);d.tz=clamp(+s.z||.6,.1,1);
     d.mc=clamp(+s.mc||0,0,1e6);d.jt=+s.jt||d.jt||Date.now();
     d.liqs=active(Array.isArray(s.liqs)?s.liqs.map(x=>({a:+x.a||0,t:+x.t||0})):[]);
-    if(s.et&&s.et!==d.et){d.e=String(s.e||'');d.et=+s.et;if(d.e==='laser'&&Date.now()-d.et<5000)laserBurst=performance.now()}
+    if(s.et&&s.et!==d.et){d.e=String(s.e||'');d.et=+s.et;if(d.e==='laser'&&Date.now()-d.et<5000)laserBurst=performance.now();if(d.e==='fog'&&Date.now()-d.et<5000)triggerFog(d.n)}
     if(s.mt&&s.mt!==seenMsg[s.cid]){seenMsg[s.cid]=s.mt;if(Date.now()-s.mt<60000){d.m=String(s.m||'').slice(0,140);d.mt=Date.now();addChat(d.n,d.m)}}
     
   }
@@ -386,7 +416,7 @@ function addBots(n){
 }
 setInterval(()=>{for(const d of dancers.values()){if(!d.bot)continue;
   if(Math.random()<.12){d.tx=clamp(d.x+rnd(-.25,.25),-.9,.9);d.tz=clamp(d.z+rnd(-.15,.15),.12,1)}
-  if(Math.random()<.025){d.m=BOT_MSG[Math.floor(Math.random()*BOT_MSG.length)];d.mt=Date.now();d.mc=(d.mc||0)+1}
+  if(Math.random()<.025){d.m=BOT_MSG[Math.floor(Math.random()*BOT_MSG.length)];d.mt=Date.now();d.mc=(d.mc||0)+1;if(d.mc%FOG_EVERY===0)triggerFog(d.n)}
   if(Math.random()<.03){d.e=['hands','jump','hey'][Math.floor(Math.random()*3)];d.et=Date.now()}
 }},1000);
 
@@ -532,6 +562,8 @@ function drawScene(now){
 
   // fog
   if(!slow){ctx.save();ctx.globalCompositeOperation='lighter';for(const f of fog){f.x+=f.v*.016;if(f.x<-.3)f.x=1.3;if(f.x>1.3)f.x=-.3;const x=f.x*W,y=floorTop+f.y*(H-floorTop)*.9,r=f.r*W;const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`hsla(${hueBase+f.y*90},80%,60%,${.05+kickEnv*.03})`);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}ctx.restore()}
+
+  drawFog(now,hueBase);
 
   // confetti/sparks on drop start
   if(sec==='drop'&&bar%28===0&&s16===0&&frac<.2&&sparks.length<(slow?40:160))for(let i=0;i<(slow?20:80);i++)sparks.push({x:W/2,y:floorTop-H*.05,vx:rnd(-8,8),vy:rnd(-12,-3),l:1,h:rnd(0,360)});
