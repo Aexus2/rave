@@ -163,6 +163,7 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/addons/"}}</script>
 <script type="module">
 import { createScene3D } from './scene3d.js';
+import { createMqttRoom } from './net.js';
 (()=>{
 "use strict";
 // ---------- helpers ----------
@@ -340,10 +341,10 @@ document.querySelectorAll('.sorts .btn').forEach(b=>b.onclick=()=>{lbSort=b.data
 setInterval(renderLb,30000);
 
 // ---------- multiplayer (room presence + db) ----------
-let room=null,db=null,lastPres=0,presTimer=null;
+let room=null,db=null,net=null,lastPres=0,presTimer=null;
 function presData(){return{cid:myCid,uid:myUid,n:me.n,g:me.g,x:+me.tx.toFixed(3),z:+me.tz.toFixed(3),liqs:me.liqs,e:me.e,et:me.et,m:me.m,mt:me.mt,mc:me.mc,jt:me.jt}}
 function pushPresence(){
-  if(!room)return;const now=Date.now();
+  if(!room||!started)return;const now=Date.now();
   const go=()=>{lastPres=Date.now();try{const r=room.presence(presData());r&&r.catch&&r.catch(()=>{})}catch(e){}};
   clearTimeout(presTimer);if(now-lastPres>250)go();else presTimer=setTimeout(go,260-(now-lastPres));
 }
@@ -367,9 +368,9 @@ function onPeers(peers){
   updCount();renderLb();
 }
 function updCount(){$('#cnt').textContent='👥 '+[...dancers.values()].filter(d=>!d.bot).length+([...dancers.values()].some(d=>d.bot)?' (+demo)':'');if(+$('#tempo').value===0)applyTempo()}
-function setConn(state){const el=$('#conn');el.className='stat '+state;el.textContent=state==='live'?'● canlı':'● yerel'}
+function setConn(state){const el=$('#conn');el.className='stat '+state;el.textContent=state==='live'?'● canlı':state==='conn'?'● bağlanıyor':'● yerel'}
 async function connect(){
-  const cl=window.claude;if(!cl||!cl.use){setConn('local');return}
+  const cl=window.claude;if(!cl||!cl.use){connectNet();return}
   let ok=false;
   try{
     const u=await cl.use('user');if(u&&u.id){try{myUid=await u.id()}catch(e){}}
@@ -395,13 +396,35 @@ async function connect(){
   }catch(e){db=null}
   setConn(ok?'live':'local');
 }
+// ---- online (MQTT) — GitHub Pages ----
+const NET_PREFIX='xrave/aexus2-rave/v1/';
+const NET_BROKERS=window.__XR_BROKERS||['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081/mqtt'];
+function connectNet(){
+  myUid=store.get('uid',null);if(!myUid||!/^[a-z0-9]{6,16}$/.test(myUid)){myUid='u'+Math.random().toString(36).slice(2,12);store.set('uid',myUid)}
+  me.uid=myUid;
+  try{
+    net=createMqttRoom({prefix:NET_PREFIX,cid:myCid,brokers:NET_BROKERS,onStatus:st=>setConn(st==='live'?'live':st==='connecting'?'conn':'local')});
+  }catch(e){setConn('local');return}
+  room=net;net.onPeers(onPeers);
+  net.onLb((uid,v)=>{
+    if(!v){dbDocs.delete(uid)}
+    else{const jt=+v.jt||0;if(!/^[a-z0-9]{6,16}$/.test(uid)||Date.now()-jt>7*864e5)return;
+      dbDocs.set(uid,{n:String(v.n||'Raver').slice(0,18),mc:clamp(+v.mc||0,0,1e6),jt,liqs:[]})}
+    clearTimeout(net._lbT);net._lbT=setTimeout(renderLb,200);
+  });
+  net.start();
+  addEventListener('pagehide',()=>{try{net.leave()}catch(e){}});
+}
+let lbPubT=null;
+function publishLb(){if(!net||!myUid||!started)return;clearTimeout(lbPubT);lbPubT=setTimeout(()=>net.publishLb(myUid,{n:me.n,mc:me.mc||0,jt:me.jt,t:Date.now()}),1500)}
 let dbBusy=false,dbAgain=false;
 async function writeDb(){
+  publishLb();
   if(!db||!myUid)return;if(dbBusy){dbAgain=true;return}dbBusy=true;
   try{await db.collection('liqs').doc(myUid).set({n:me.n,liqs:me.liqs,mc:me.mc||0,jt:me.jt,t:Date.now()})}catch(e){}
   dbBusy=false;if(dbAgain){dbAgain=false;writeDb()}
 }
-setTimeout(()=>{if($('#conn').textContent.includes('bağlanıyor'))setConn('local')},11000);
+setTimeout(()=>{if(!net&&$('#conn').textContent.includes('bağlanıyor'))setConn('local')},11000);
 connect();
 
 // ---------- bots ----------
