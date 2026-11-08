@@ -1,10 +1,10 @@
 {
-  "title1": "LİQ",
+  "title1": "Aexus",
   "title2": "RAVE",
-  "tagline": "Liq olduysan, stop yediysen — piste gel, DJ kabini seni bekliyor!",
-  "screenText": "LİQ RAVE",
+  "tagline": "Rave Parti Yapıyoruz",
+  "screenText": "Twitter Rave Party",
   "djMode": "auto",
-  "djName": "DJ MARGIN CALL",
+  "djName": "Dj Aexus",
   "djSub": "şu an kabinde 🎧",
   "shuffle": false,
   "tracks": [
@@ -13,6 +13,12 @@
       "title": "Dahili Techno",
       "src": "",
       "bpm": 0
+    },
+    {
+      "type": "yt",
+      "title": "YouTube nGTMB2WovWY",
+      "src": "https://youtu.be/nGTMB2WovWY",
+      "bpm": 128
     }
   ]
 }
