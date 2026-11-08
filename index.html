@@ -160,7 +160,9 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
   </div>
 </div>
 
-<script>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/addons/"}}</script>
+<script type="module">
+import { createScene3D } from './scene3d.js';
 (()=>{
 "use strict";
 // ---------- helpers ----------
@@ -810,12 +812,39 @@ addEventListener('keydown',e=>{if(e.shiftKey&&e.altKey&&(e.key==='A'||e.key==='a
 if(location.hash==='#onizleme'){const pv=store.get('preview',null);if(pv){PREVIEW=pv;applyCfg(pv);setTimeout(()=>toast('👀 Önizleme modu'),600)}}
 
 // ---------- loop ----------
+// ---------- 3D bridge ----------
+function djFixName(n){n=String(n||'').trim();if(!n)return'DJ';n=n.toLocaleUpperCase('tr');return /^DJ\b/.test(n)?n:'DJ '+n}
+function beatState(now){
+  const sd=stepDur()*1000, frac=clamp((now-curStepPerf)/sd,0,1);
+  const bar=Math.floor(curStep/16), s16=curStep%16, sec=visSection(bar);
+  const beatPh=((curStep%4)+frac)/4;
+  const kickEnv=sec==='break'?0:Math.exp(-beatPh*7);
+  const energy=sec==='drop'?1:sec==='groove'?.7:sec==='build'?.5+.5*(((bar%28)-24)/4+s16/64):.25;
+  const tSec=now/1000;
+  return{frac,bar,s16,sec,beatPh,kickEnv,energy,tSec,hue:(curStep*3+tSec*10)%360,laserOn:now-laserBurst<4500};
+}
+let R3=null;
+try{
+  const lbl=document.createElement('div');lbl.id='lbl3';document.body.insertBefore(lbl,document.querySelector('.ui'));
+  R3=createScene3D({
+    NEON,SKIN,HAIR,labels:lbl,
+    slow:()=>slow,started:()=>started,zoomT:()=>zoomT,curStep:()=>curStep,beat:beatState,
+    cfg:()=>CFG,topDj,djLabel:djFixName,dancers:()=>dancers,
+    moveMe:(x,z)=>{me.tx=x;me.tz=z;pushPresence()},
+    showMe:now=>clamp((showMeUntil-now)/3500,0,1),
+    fogging:now=>now<fogUntil,
+    fogAmount:now=>{if(now>fogUntil)return 0;const el=FOG_MS-(fogUntil-now);return el<400?el/400:el>FOG_MS-900?(FOG_MS-el)/900:1},
+    spectrum:()=>{if(analyser&&ac&&ac.state==='running'&&musicOn&&music.mode!=='yt'){analyser.getByteFrequencyData(freqData);return freqData}return null},
+  });
+  if(R3)R3.mount(lbl,cv);else lbl.remove();
+}catch(e){console.warn('3D kapalı',e);R3=null;const l=document.getElementById('lbl3');if(l)l.remove();cv.style.display='';const c3=document.getElementById('c3');if(c3)c3.remove()}
+
 function frame(now){
   if(music.mode==='synth'){if(+$('#tempo').value===0){const b=autoBpm();if(b!==bpm)bpm=b}}
   else bpm=music.bpm||128;
   music.detect(now);
   updateClock(now);
-  drawScene(now);
+  if(R3){try{R3.render(now)}catch(e){console.error(e)}}else drawScene(now);
   requestAnimationFrame(frame);
 }
 renderLb();renderChat();updCount();
