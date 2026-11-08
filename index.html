@@ -135,7 +135,7 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
   <div id="lb">
     <div id="lbHead"><span>🏆 Rave efsaneleri</span><span id="lbArrow">▾</span></div>
     <div id="lbBody">
-      <div class="sorts"><button class="btn on" data-s="big">En büyük liq</button><button class="btn" data-s="new">Son gelenler</button></div>
+      <div class="sorts"><button class="btn on" data-s="dance">🕺 En iyi dansçı</button><button class="btn" data-s="new">👋 Katılanlar</button></div>
       <div id="lbList"></div>
     </div>
   </div>
@@ -240,14 +240,14 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 // ---------- state ----------
 const myCid=Math.random().toString(36).slice(2,10);
 let myUid=null;
-const me={cid:myCid,n:store.get('name','Raver'+Math.floor(rnd(100,999))),g:store.get('g','e'),liqs:active(store.get('liqs',[])),
+const me={cid:myCid,n:store.get('name','Raver'+Math.floor(rnd(100,999))),g:store.get('g','e'),liqs:active(store.get('liqs',[])),mc:+store.get('mc',0)||0,jt:Date.now(),
   x:rnd(-.5,.5),z:rnd(.45,.85),tx:0,tz:0,seed:hash(myCid),e:'',et:0,m:'',mt:0,me:true};
 me.tx=me.x;me.tz=me.z;
 const dancers=new Map(); // key -> dancer
 dancers.set('me',me);
 const dbDocs=new Map(); // uid -> {n,g,liqs}
 const chatLog=[];
-let slow=store.get('slow',false), musicOn=true, zoom=1, zoomT=1, showMeUntil=0, laserBurst=0, started=false, lbSort='big';
+let slow=store.get('slow',false), musicOn=true, zoom=1, zoomT=1, showMeUntil=0, laserBurst=0, started=false, lbSort='dance';
 
 // ---------- canvas ----------
 const cv=$('#c'),ctx=cv.getContext('2d');
@@ -346,26 +346,32 @@ function addLiq(a){
   toast(`💀 LİQ ${a?fmt(a):''}`);me.e='hands';me.et=Date.now();
   pushPresence();writeDb();renderLb();
 }
-function sayChat(t){me.m=t;me.mt=Date.now();addChat(me.n,t,true);pushPresence()}
+function sayChat(t){me.m=t;me.mt=Date.now();me.mc=(me.mc||0)+1;store.set('mc',me.mc);addChat(me.n,t,true);pushPresence();writeDb();renderLb()}
 function addChat(n,t,mine){chatLog.push({n,t,mine});if(chatLog.length>80)chatLog.shift();renderChat()}
 function sysChat(t){chatLog.push({sys:true,t});if(chatLog.length>80)chatLog.shift();renderChat()}
 function renderChat(){const el=$('#chatLog');el.innerHTML=chatLog.map(c=>c.sys?`<div class="cl sys">${esc(c.t)}</div>`:`<div class="cl${c.mine?' me':''}"><b>${esc(c.n)}:</b> ${esc(c.t)}</div>`).join('');el.scrollTop=el.scrollHeight}
 let toastTm;function toast(t){const el=$('#toast');el.textContent=t;el.style.opacity=1;clearTimeout(toastTm);toastTm=setTimeout(()=>el.style.opacity=0,1800)}
 
 // ---------- leaderboard ----------
-function lbEntries(){
+function lbPeople(){
   const m=new Map();
-  for(const [uid,d] of dbDocs) if(active(d.liqs).length) m.set('u:'+uid,{n:d.n,liqs:active(d.liqs),me:uid===myUid});
-  for(const [k,d] of dancers){const key=d.uid?'u:'+d.uid:'c:'+k;const l=active(d.liqs);if(!l.length)continue;
-    const ex=m.get(key);if(!ex||l.length>=ex.liqs.length)m.set(key,{n:d.n,liqs:l,me:!!d.me,bot:d.bot})}
-  const arr=[...m.values()].map(e=>({...e,sum:total(e.liqs),last:Math.max(...e.liqs.map(x=>x.t)),c:e.liqs.length}));
-  arr.sort(lbSort==='big'?(a,b)=>b.sum-a.sum||b.c-a.c:(a,b)=>b.last-a.last);
-  return arr;
+  for(const [uid,d] of dbDocs) m.set('u:'+uid,{n:d.n,liqs:active(d.liqs),mc:d.mc||0,jt:d.jt||0,me:uid===myUid,online:false});
+  for(const [k,d] of dancers){const key=d.uid?'u:'+d.uid:'c:'+k;const ex=m.get(key)||{};
+    m.set(key,{n:d.n,liqs:active(d.liqs).length>=(ex.liqs||[]).length?active(d.liqs):ex.liqs,mc:Math.max(d.mc||0,ex.mc||0),jt:Math.max(d.jt||0,ex.jt||0),me:!!d.me,bot:d.bot,online:true})}
+  return [...m.values()].map(e=>({...e,sum:total(e.liqs),c:e.liqs.length}));
 }
-function topDj(){const a=lbEntries().slice().sort((a,b)=>b.sum-a.sum||b.c-a.c);return a[0]||null}
+function lbEntries(){
+  const a=lbPeople();
+  if(lbSort==='dance')return a.filter(e=>e.mc>0).sort((x,y)=>y.mc-x.mc||y.c-x.c);
+  return a.filter(e=>e.jt).sort((x,y)=>y.jt-x.jt);
+}
+function topDj(){const a=lbPeople().filter(e=>e.c).sort((x,y)=>y.sum-x.sum||y.c-x.c);return a[0]||null}
 function renderLb(){
-  const a=lbEntries();
-  $('#lbList').innerHTML=a.length?a.slice(0,50).map((e,i)=>`<div class="lbr${e.me?' me':''}"><span class="r">${i===0&&lbSort==='big'?'🎧':i+1}</span><span class="n">${esc(e.n)} <small>💀${e.c} · ${ago(e.last)}</small></span><span class="v">${fmt(e.sum)||'liq'}</span></div>`).join(''):'<div class="empty">Henüz liq yok. Bir tutar yaz (örn. 2.4k) ve listeye gir.</div>';
+  const a=lbEntries(),d=lbSort==='dance';
+  $('#lbList').innerHTML=a.length?a.slice(0,50).map((e,i)=>d
+    ?`<div class="lbr${e.me?' me':''}"><span class="r">${i===0?'👑':i+1}</span><span class="n">${esc(e.n)}${e.c?` <small>💀${e.c}</small>`:''}</span><span class="v">💬 ${e.mc}</span></div>`
+    :`<div class="lbr${e.me?' me':''}"><span class="r">${i+1}</span><span class="n">${esc(e.n)} <small>${e.online?'🟢 pistte':'⚪ ayrıldı'}</small></span><span class="v">${ago(e.jt)}</span></div>`).join('')
+    :`<div class="empty">${d?'Henüz kimse mesaj atmadı. En çok mesaj atan en iyi dansçı olur!':'Henüz kimse katılmadı.'}</div>`;
 }
 $('#lbHead').onclick=()=>{$('#lb').classList.toggle('open');$('#lbArrow').textContent=$('#lb').classList.contains('open')?'▴':'▾'};
 document.querySelectorAll('.sorts .btn').forEach(b=>b.onclick=()=>{lbSort=b.dataset.s;document.querySelectorAll('.sorts .btn').forEach(x=>x.classList.toggle('on',x===b));renderLb()});
@@ -373,7 +379,7 @@ setInterval(renderLb,30000);
 
 // ---------- multiplayer (room presence + db) ----------
 let room=null,db=null,lastPres=0,presTimer=null;
-function presData(){return{cid:myCid,uid:myUid,n:me.n,g:me.g,x:+me.tx.toFixed(3),z:+me.tz.toFixed(3),liqs:me.liqs,e:me.e,et:me.et,m:me.m,mt:me.mt}}
+function presData(){return{cid:myCid,uid:myUid,n:me.n,g:me.g,x:+me.tx.toFixed(3),z:+me.tz.toFixed(3),liqs:me.liqs,e:me.e,et:me.et,m:me.m,mt:me.mt,mc:me.mc,jt:me.jt}}
 function pushPresence(){
   if(!room)return;const now=Date.now();
   const go=()=>{lastPres=Date.now();try{const r=room.presence(presData());r&&r.catch&&r.catch(()=>{})}catch(e){}};
@@ -389,6 +395,7 @@ function onPeers(peers){
     let d=dancers.get(s.cid);
     if(!d){d={cid:s.cid,x:clamp(+s.x||0,-.95,.95),z:clamp(+s.z||.6,.1,1),seed:hash(s.cid),liqs:[]};dancers.set(s.cid,d);if(started)sysChat(`🎧 ${String(s.n||'Biri').slice(0,18)} piste girdi`)}
     d.uid=s.uid;d.n=String(s.n||'Raver').slice(0,18);d.g=s.g==='k'?'k':'e';d.tx=clamp(+s.x||0,-.95,.95);d.tz=clamp(+s.z||.6,.1,1);
+    d.mc=clamp(+s.mc||0,0,1e6);d.jt=+s.jt||d.jt||Date.now();
     d.liqs=active(Array.isArray(s.liqs)?s.liqs.map(x=>({a:+x.a||0,t:+x.t||0})):[]);
     if(s.et&&s.et!==d.et){d.e=String(s.e||'');d.et=+s.et;if(d.e==='laser'&&Date.now()-d.et<5000)laserBurst=performance.now()}
     if(s.mt&&s.mt!==seenMsg[s.cid]){seenMsg[s.cid]=s.mt;if(Date.now()-s.mt<60000){d.m=String(s.m||'').slice(0,140);d.mt=Date.now();addChat(d.n,d.m)}}
@@ -418,7 +425,7 @@ async function connect(){
         const docs=Array.isArray(snap)?snap:(snap&&(snap.docs||snap.items))||[];
         dbDocs.clear();
         for(const d of docs){const id=d.id||(d.ref&&d.ref.id);const v=typeof d.data==='function'?d.data():(d.data||d.value||d);if(!id||!v)continue;
-          dbDocs.set(id,{n:String(v.n||'Raver').slice(0,18),liqs:active(Array.isArray(v.liqs)?v.liqs.map(x=>({a:+x.a||0,t:+x.t||0})):[])})}
+          dbDocs.set(id,{mc:clamp(+v.mc||0,0,1e6),jt:+v.jt||+v.t||0,n:String(v.n||'Raver').slice(0,18),liqs:active(Array.isArray(v.liqs)?v.liqs.map(x=>({a:+x.a||0,t:+x.t||0})):[])})}
         renderLb();
       },()=>{});
       if(myUid&&me.liqs.length)writeDb();
@@ -429,7 +436,7 @@ async function connect(){
 let dbBusy=false,dbAgain=false;
 async function writeDb(){
   if(!db||!myUid)return;if(dbBusy){dbAgain=true;return}dbBusy=true;
-  try{await db.collection('liqs').doc(myUid).set({n:me.n,liqs:me.liqs,t:Date.now()})}catch(e){}
+  try{await db.collection('liqs').doc(myUid).set({n:me.n,liqs:me.liqs,mc:me.mc||0,jt:me.jt,t:Date.now()})}catch(e){}
   dbBusy=false;if(dbAgain){dbAgain=false;writeDb()}
 }
 setTimeout(()=>{if($('#conn').textContent.includes('bağlanıyor'))setConn('local')},11000);
@@ -443,14 +450,14 @@ function addBots(n){
     const cid='bot'+Math.random().toString(36).slice(2,8);
     const liqs=[];const c=Math.random()<.85?Math.ceil(rnd(0,4)):0;
     for(let j=0;j<c;j++)liqs.push({a:Math.random()<.8?Math.round(Math.pow(10,rnd(2,5.3))):0,t:Date.now()-rnd(0,LIQ_TTL*.9)});
-    const d={cid,bot:true,n:BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)],g:Math.random()<.5?'k':'e',x:rnd(-.85,.85),z:rnd(.15,.98),seed:hash(cid),liqs};
+    const d={cid,bot:true,n:BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)],g:Math.random()<.5?'k':'e',x:rnd(-.85,.85),z:rnd(.15,.98),seed:hash(cid),liqs,mc:Math.floor(rnd(0,25)),jt:Date.now()-rnd(0,40*60000)};
     d.tx=d.x;d.tz=d.z;dancers.set(cid,d);
   }
   updCount();renderLb();
 }
 setInterval(()=>{for(const d of dancers.values()){if(!d.bot)continue;
   if(Math.random()<.12){d.tx=clamp(d.x+rnd(-.25,.25),-.9,.9);d.tz=clamp(d.z+rnd(-.15,.15),.12,1)}
-  if(Math.random()<.025){d.m=BOT_MSG[Math.floor(Math.random()*BOT_MSG.length)];d.mt=Date.now()}
+  if(Math.random()<.025){d.m=BOT_MSG[Math.floor(Math.random()*BOT_MSG.length)];d.mt=Date.now();d.mc=(d.mc||0)+1}
   if(Math.random()<.03){d.e=['hands','jump','hey'][Math.floor(Math.random()*3)];d.et=Date.now()}
 }},1000);
 
@@ -481,7 +488,7 @@ $('#renBtn').onclick=openOverlay;$('#ovRen').onclick=()=>{$('#nameIn').select();
 $('#joinBtn').onclick=()=>{
   const n=$('#nameIn').value.trim().slice(0,18);if(n){me.n=n;store.set('name',n)}
   $('#ov').classList.add('gone');
-  if(!started){started=true;sysChat(`🎧 ${me.n} piste girdi. Tutar yaz, liq ol, kabine çık!`)}
+  if(!started){started=true;me.jt=Date.now();renderLb();sysChat(`🎧 ${me.n} piste girdi. Tutar yaz, liq ol, kabine çık!`)}
   initAudio();ac&&ac.resume&&ac.resume().catch(()=>{});
   music.start();
   pushPresence();writeDb();
