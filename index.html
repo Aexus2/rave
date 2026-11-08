@@ -75,7 +75,32 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
 @keyframes sh{to{background-position:200% 0}}
 .link{display:inline-block;margin-top:10px;color:var(--dim);font-size:13px;cursor:pointer;text-decoration:underline}
 #toast{left:50%;top:18%;transform:translateX(-50%);pointer-events:none;font-family:'Unbounded';font-weight:900;font-size:clamp(18px,4vw,30px);text-align:center;text-shadow:0 0 20px var(--pink);opacity:0;transition:opacity .3s}
+#np{margin-top:8px;display:flex;gap:6px;align-items:center;max-width:min(340px,calc(100vw - 28px))}
+#np .stat{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ytWrap{position:fixed;left:14px;bottom:12px;width:200px;height:113px;z-index:4;border-radius:10px;overflow:hidden;border:1px solid var(--line);display:none;background:#000}
+#ytWrap.show{display:block}
+#ytBox,#ytBox iframe{width:100%;height:100%}
+.modal{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.acard{width:min(700px,calc(100vw - 20px));max-height:92vh;overflow:auto;background:#12082a;border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:18px 18px 14px;user-select:text}
+.acard h3{font-family:'Unbounded';margin:0 0 4px;font-size:20px}
+.acard h4{margin:16px 0 8px;font-size:14px;color:var(--cyan);text-transform:uppercase;letter-spacing:.08em}
+.acard label{display:block;font-size:12px;color:var(--dim);margin:8px 0 3px}
+.acard input[type=text],.acard input[type=password],.acard input[type=number],.acard input:not([type]){width:100%;padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);outline:none}
+.acard input:focus{border-color:var(--cyan)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.trk{display:grid;grid-template-columns:28px 1fr 64px auto;gap:6px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.07)}
+.trk input{padding:6px 8px!important}
+.trk .tb{display:flex;gap:3px}.trk .tb .btn{padding:5px 8px;font-size:12px}
+.trk small{display:block;color:var(--dim);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;grid-column:2/5}
+.addrow{display:flex;gap:6px;margin-top:8px}.addrow input{flex:1}
+.abar{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:16px;position:sticky;bottom:-14px;background:#12082a;padding:10px 0}
+.pri{background:linear-gradient(90deg,var(--pink),#8a3dff)!important;border:0!important;font-weight:700}
+#aStat{font-size:13px;color:var(--lime);margin-top:6px;min-height:18px;white-space:pre-wrap}
+.note{font-size:12px;color:var(--dim);line-height:1.45}
 @media (max-width:760px){
+ #ytWrap{left:auto;right:10px;top:10px;bottom:auto;width:160px;height:90px}
+ .g2{grid-template-columns:1fr}
  #chat{top:auto;bottom:118px;right:10px;width:min(300px,calc(100vw - 20px))}
  #chat:not(.big) #chatLog{height:64px}
  #chat .rules{display:none}#chat.big .rules{display:block}
@@ -88,8 +113,8 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
 <canvas id="c"></canvas>
 
 <div id="top" class="ui">
-  <h1>LİQ <em>RAVE</em></h1>
-  <div class="tag">Liq olduysan, stop yediysen — piste gel, DJ kabini seni bekliyor!</div>
+  <h1 id="ttl">LİQ <em>RAVE</em></h1>
+  <div class="tag" id="tagl">Liq olduysan, stop yediysen — piste gel, DJ kabini seni bekliyor!</div>
   <div class="row">
     <span class="stat" id="cnt">👥 0</span>
     <span class="stat" id="conn">● bağlanıyor</span>
@@ -106,6 +131,7 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
     <button class="btn" id="hideBtn">Gizle (H)</button>
     <button class="btn" id="renBtn">✏️ İsim</button>
   </div>
+  <div id="np"><span class="stat" id="npT">🎵 Dahili Techno</span><button class="btn" id="nextBtn" title="Sonraki şarkı">⏭</button></div>
   <div id="lb">
     <div id="lbHead"><span>🏆 Rave efsaneleri</span><span id="lbArrow">▾</span></div>
     <div id="lbBody">
@@ -143,6 +169,46 @@ h1 em{font-style:italic;background:linear-gradient(90deg,var(--pink),var(--cyan)
 
 <div id="toast" class="ui"></div>
 <div id="hint">H: arayüzü göster</div>
+<div id="ytWrap"><div id="ytBox"></div></div>
+
+<div id="adm" class="modal">
+ <div class="acard">
+  <h3>🛠 Admin paneli</h3>
+  <div class="note">“Önizle” sadece senin ekranında dener. “Yayınla” ayarları ve MP3'leri GitHub reposuna kaydeder; ~1 dk sonra herkes görür.</div>
+  <h4>Site</h4>
+  <div class="g2">
+   <div><label>Başlık (düz kısım)</label><input id="aT1"></div>
+   <div><label>Başlık (renkli kısım)</label><input id="aT2"></div>
+  </div>
+  <label>Slogan</label><input id="aTag">
+  <label>LED ekran yazısı</label><input id="aScr">
+  <h4>DJ kabini</h4>
+  <div class="row">
+   <button class="btn" id="aDjAuto">🏆 Otomatik (en büyük liq)</button>
+   <button class="btn" id="aDjMan">✏️ Sabit isim</button>
+  </div>
+  <label>DJ adı <span id="aDjHint">(otomatikte kimse yoksa bu görünür)</span></label><input id="aDj" placeholder="DJ MARGIN CALL">
+  <label>Kabin alt yazısı (sabit isimde)</label><input id="aDjSub" placeholder="şu an kabinde 🎧">
+  <h4>Müzik listesi</h4>
+  <div id="aTracks"></div>
+  <div class="addrow"><input id="aYt" placeholder="YouTube linki yapıştır (youtube.com/watch?v=… / youtu.be/… / shorts)"><button class="btn" id="aYtAdd">▶️ Ekle</button></div>
+  <div class="addrow"><input type="file" id="aMp3" accept="audio/mpeg,audio/mp3,audio/*" multiple style="flex:1"><button class="btn" id="aSynthAdd">🎛 Dahili techno ekle</button></div>
+  <div class="row" style="margin-top:8px"><button class="btn" id="aShuf">🔀 Karışık çal</button></div>
+  <div class="note" style="margin-top:6px">BPM: ışıkların temposu. MP3'te ışıklar bas vuruşlarına kendisi de oturur. YouTube'da spektrum gerçek değil, BPM'e göre oynar.</div>
+  <h4>GitHub (Yayınla için)</h4>
+  <div class="g2">
+   <div><label>Repo (kullanıcı/repo)</label><input id="aRepo"></div>
+   <div><label>Token (sadece bu repo, Contents: Read and write)</label><input type="password" id="aTok" placeholder="github_pat_…"></div>
+  </div>
+  <div class="row"><button class="btn" id="aRem">💾 Token'ı bu tarayıcıda hatırla</button><a class="note" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">→ token oluştur</a></div>
+  <div id="aStat"></div>
+  <div class="abar">
+   <button class="btn" id="aClose">Kapat</button>
+   <button class="btn" id="aPrev">👀 Önizle (sadece bende)</button>
+   <button class="btn pri" id="aPub">🚀 Yayınla (herkes için)</button>
+  </div>
+ </div>
+</div>
 
 <div id="ov">
   <div class="card">
@@ -244,12 +310,12 @@ function scheduleStep(step,t){
   visQ.push({t,step});
 }
 function scheduler(){
-  if(!ac)return;
+  if(!ac||music.mode!=='synth')return;
   while(nextT<ac.currentTime+.12){scheduleStep(stepIdx,nextT);nextT+=stepDur();stepIdx++}
 }
 setInterval(scheduler,25);
 function updateClock(now){
-  if(ac&&ac.state==='running'){
+  if(ac&&ac.state==='running'&&music.mode==='synth'){
     while(visQ.length&&visQ[0].t<=ac.currentTime){curStep=visQ.shift().step;curStepPerf=now}
   }else{
     const ms=stepDur()*1000;
@@ -391,7 +457,7 @@ setInterval(()=>{for(const d of dancers.values()){if(!d.bot)continue;
 // ---------- UI wiring ----------
 $('#form').onsubmit=e=>{e.preventDefault();const v=$('#msg').value;$('#msg').value='';handleInput(v)};
 $('#setBtn').onclick=()=>{$('#settings').classList.toggle('open');$('#setBtn').classList.toggle('on')};
-$('#musicBtn').onclick=()=>{musicOn=!musicOn;$('#musicBtn').classList.toggle('on',musicOn);$('#musicBtn').textContent=musicOn?'🔊 Müzik':'🔇 Müzik';if(!ac&&musicOn)initAudio();if(ac){ac.resume&&ac.resume().catch(()=>{});master.gain.setTargetAtTime(musicOn?.8:0,ac.currentTime,.05)}};
+$('#musicBtn').onclick=()=>{musicOn=!musicOn;$('#musicBtn').classList.toggle('on',musicOn);$('#musicBtn').textContent=musicOn?'🔊 Müzik':'🔇 Müzik';music.applyOn()};
 $('#demoBtn').onclick=()=>{addBots(10);toast('🤖 +10 demo raver')};
 $('#clearBtn').onclick=()=>{for(const [k,d] of dancers)if(d.bot)dancers.delete(k);chatLog.length=0;renderChat();updCount();renderLb();toast('🧹 Temizlendi')};
 function toggleHide(){document.body.classList.toggle('hidden-ui')}
@@ -416,7 +482,8 @@ $('#joinBtn').onclick=()=>{
   const n=$('#nameIn').value.trim().slice(0,18);if(n){me.n=n;store.set('name',n)}
   $('#ov').classList.add('gone');
   if(!started){started=true;sysChat(`🎧 ${me.n} piste girdi. Tutar yaz, liq ol, kabine çık!`)}
-  if(musicOn){initAudio();ac&&ac.resume&&ac.resume().catch(()=>{})}
+  initAudio();ac&&ac.resume&&ac.resume().catch(()=>{});
+  music.start();
   pushPresence();writeDb();
 };
 $('#nameIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('#joinBtn').click()});
@@ -442,7 +509,7 @@ const sparks=[];
 function drawScene(now){
   layout();
   const sd=stepDur()*1000, frac=clamp((now-curStepPerf)/sd,0,1);
-  const bar=Math.floor(curStep/16), s16=curStep%16, sec=section(bar);
+  const bar=Math.floor(curStep/16), s16=curStep%16, sec=visSection(bar);
   const beatPh=((curStep%4)+frac)/4;
   const kickEnv=sec==='break'?0:Math.exp(-beatPh*7);
   const energy=sec==='drop'?1:sec==='groove'?.7:sec==='build'?.5+.5*(((bar%28)-24)/4+s16/64):.25;
@@ -466,7 +533,7 @@ function drawScene(now){
   // LED screen
   const scX=W*.2,scY=H*.06,scW=W*.6,scH=floorTop*.42;
   ctx.fillStyle='#000';ctx.fillRect(scX-4,scY-4,scW+8,scH+8);
-  let spec=null;if(analyser&&ac.state==='running'&&musicOn){analyser.getByteFrequencyData(freqData);spec=freqData}
+  let spec=null;if(analyser&&ac.state==='running'&&musicOn&&music.mode!=='yt'){analyser.getByteFrequencyData(freqData);spec=freqData}
   const nb=slow?24:48,bw=scW/nb;
   for(let i=0;i<nb;i++){
     let v=spec?spec[Math.floor(i*spec.length*.7/nb)]/255:clamp(.25+.6*energy*(Math.sin(i*.6+tSec*4)*.5+.5)*(.4+kickEnv),0,1);
@@ -474,7 +541,7 @@ function drawScene(now){
   }
   ctx.save();ctx.font=`900 ${Math.min(scH*.38,W*.07)}px Unbounded`;ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.globalAlpha=.85;ctx.fillStyle='#fff';ctx.shadowColor=`hsl(${hueBase},100%,60%)`;ctx.shadowBlur=25;
-  ctx.fillText(sec==='build'?'DROP GELİYOR':sec==='break'?'ELLER HAVAYA':'LİQ RAVE',W/2,scY+scH*.42+Math.sin(tSec*2)*3);ctx.restore();
+  ctx.fillText(sec==='build'?'DROP GELİYOR':sec==='break'?'ELLER HAVAYA':(CFG.screenText||'LİQ RAVE').toLocaleUpperCase('tr'),W/2,scY+scH*.42+Math.sin(tSec*2)*3);ctx.restore();
 
   // speakers
   for(const side of [-1,1]){
@@ -585,11 +652,13 @@ function drawBooth(now,kickEnv,tSec,hue,beatPh,energy){
   // mixer lights
   for(let i=0;i<8;i++){const on=Math.random()<.3+kickEnv*.5;ctx.fillStyle=on?`hsl(${i<5?120:i<7?50:0},100%,55%)`:'#222';ctx.fillRect(W/2-bw*.08+i*bw*.02,by-bh*.08,bw*.012,bh*.05)}
   // name panel
-  const top=topDj();const label=top?'DJ '+top.n.toLocaleUpperCase('tr'):'DJ MARGIN CALL';
+  const djFix=(n)=>{n=String(n||'').trim();if(!n)return'DJ MARGIN CALL';n=n.toLocaleUpperCase('tr');return /^DJ\b/.test(n)?n:'DJ '+n};
+  const manual=CFG.djMode==='manual';
+  const top=manual?null:topDj();const label=manual?djFix(CFG.djName):top?djFix(top.n):djFix(CFG.djName);
   ctx.save();ctx.font=`900 ${Math.min(bh*.32,bw/label.length*1.4)}px Unbounded`;ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillStyle='#fff';ctx.shadowColor=`hsl(${(hue+180)%360},100%,60%)`;ctx.shadowBlur=slow?0:16;ctx.fillText(label,W/2,by+bh*.45);
   ctx.font=`500 ${Math.max(10,bh*.16)}px "Space Grotesk"`;ctx.shadowBlur=0;ctx.fillStyle='rgba(255,255,255,.65)';
-  ctx.fillText(top?`💀 ${top.c} liq · ${fmt(top.sum)||'—'} · kabin onun`:'en büyük liq kabine çıkar',W/2,by+bh*.78);ctx.restore();
+  ctx.fillText(manual?(CFG.djSub||'şu an kabinde 🎧'):top?`💀 ${top.c} liq · ${fmt(top.sum)||'—'} · kabin onun`:'en büyük liq kabine çıkar',W/2,by+bh*.78);ctx.restore();
 }
 
 function drawDancer(d,now,beatPh,kickEnv,sec,tSec){
@@ -664,9 +733,187 @@ function drawLabel(d,now){
   }
 }
 
+// ---------- config ----------
+const DEF_CFG={title1:'LİQ',title2:'RAVE',tagline:'Liq olduysan, stop yediysen — piste gel, DJ kabini seni bekliyor!',screenText:'LİQ RAVE',
+  djMode:'auto',djName:'DJ MARGIN CALL',djSub:'şu an kabinde 🎧',shuffle:false,tracks:[{type:'synth',title:'Dahili Techno',bpm:0}]};
+let CFG=JSON.parse(JSON.stringify(DEF_CFG));
+function sanitizeCfg(c){
+  const o={...DEF_CFG,...(c&&typeof c==='object'?c:{})};
+  for(const k of ['title1','title2','tagline','screenText','djName','djSub'])o[k]=String(o[k]??'').slice(0,120);
+  o.djMode=o.djMode==='manual'?'manual':'auto';o.shuffle=!!o.shuffle;
+  o.tracks=(Array.isArray(o.tracks)?o.tracks:[]).filter(t=>t&&['synth','mp3','yt'].includes(t.type)).map(t=>({type:t.type,title:String(t.title||'').slice(0,80),src:String(t.src||'').slice(0,400),bpm:clamp(+t.bpm||0,0,220)}));
+  if(!o.tracks.length)o.tracks=[{type:'synth',title:'Dahili Techno',bpm:0}];
+  return o;
+}
+function applyCfg(c,{restartMusic}={}){
+  CFG=sanitizeCfg(c);
+  $('#ttl').innerHTML=esc(CFG.title1)+(CFG.title2?' <em>'+esc(CFG.title2)+'</em>':'');
+  $('#tagl').textContent=CFG.tagline;
+  document.title=[CFG.title1,CFG.title2].filter(Boolean).join(' ').trim()||'Liq Rave';
+  $('.card h2').textContent='🎧 '+document.title;
+  if(restartMusic&&started){music.idx=-1;music.next()}
+}
+async function loadCfg(){
+  try{const r=await fetch('config.json?v='+Date.now(),{cache:'no-store'});if(r.ok)applyCfg(await r.json())}catch(e){}
+}
+loadCfg();
+
+// ---------- music (synth / mp3 / youtube) ----------
+function ytId(u){u=String(u).trim();if(/^[\w-]{11}$/.test(u))return u;const m=u.match(/(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([\w-]{11})/);return m?m[1]:null}
+const music={
+  mode:'synth',idx:-1,bpm:128,energy:0,emax:.3,bassAvg:.3,lastOnset:0,fails:0,
+  el:null,elSrc:null,elGain:null,yt:null,ytReady:false,ytPending:null,
+  track(){return CFG.tracks[this.idx]},
+  start(){if(this.idx<0)this.next();else this.applyOn()},
+  next(){
+    const n=CFG.tracks.length;if(!n)return;
+    let i=CFG.shuffle&&n>1?(()=>{let r;do r=Math.floor(Math.random()*n);while(r===this.idx);return r})():(this.idx+1)%n;
+    this.play(i);
+  },
+  stopAll(){
+    if(this.el){try{this.el.pause()}catch(e){}}
+    if(this.yt&&this.ytReady){try{this.yt.stopVideo()}catch(e){}}
+    $('#ytWrap').classList.remove('show');
+    if(ac&&master)master.gain.setTargetAtTime(0,ac.currentTime,.03);
+  },
+  play(i){
+    this.idx=i;const t=this.track();if(!t)return;
+    this.stopAll();this.mode=t.type;this.bpm=t.bpm||128;
+    $('#npT').textContent=(t.type==='yt'?'▶️ ':t.type==='mp3'?'🎵 ':'🎛 ')+(t.title||(t.type==='synth'?'Dahili Techno':'Şarkı'));
+    if(t.type==='synth'){
+      initAudio();if(ac){stepIdx=curStep+1;nextT=ac.currentTime+.06;visQ.length=0}
+    }else if(t.type==='mp3'){
+      initAudio();this.ensureEl();this.el.src=t.src;
+      const p=this.el.play();p&&p.catch&&p.catch(()=>{});
+    }else if(t.type==='yt'){
+      const id=ytId(t.src);if(!id){this.fail();return}
+      $('#ytWrap').classList.add('show');this.ensureYt();
+      if(this.ytReady){this.yt.loadVideoById(id)}else this.ytPending=id;
+    }
+    this.applyOn();
+  },
+  fail(){this.fails++;if(this.fails>CFG.tracks.length+1){this.fails=0;CFG.tracks.push({type:'synth',title:'Dahili Techno',bpm:0});this.play(CFG.tracks.length-1);return}setTimeout(()=>this.next(),300)},
+  ensureEl(){
+    if(this.el)return;
+    this.el=new Audio();this.el.crossOrigin='anonymous';this.el.preload='auto';
+    this.el.onended=()=>this.next();this.el.onerror=()=>{if(this.mode==='mp3')this.fail()};this.el.onplaying=()=>{this.fails=0};
+    if(ac){try{this.elSrc=ac.createMediaElementSource(this.el);this.elGain=ac.createGain();this.elSrc.connect(this.elGain);this.elGain.connect(analyser)}catch(e){}}
+  },
+  ensureYt(){
+    if(this.yt||this._ytLoading)return;this._ytLoading=true;
+    window.onYouTubeIframeAPIReady=()=>{
+      this.yt=new YT.Player('ytBox',{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0,modestbranding:1},
+        events:{onReady:()=>{this.ytReady=true;if(this.ytPending){this.yt.loadVideoById(this.ytPending);this.ytPending=null}this.applyOn()},
+          onStateChange:e=>{if(e.data===0&&this.mode==='yt')this.next();if(e.data===1)this.fails=0},
+          onError:()=>{if(this.mode==='yt')this.fail()}}});
+    };
+    const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s);
+  },
+  applyOn(){
+    if(ac){ac.resume&&ac.resume().catch(()=>{});master.gain.setTargetAtTime(musicOn&&this.mode==='synth'?.8:0,ac.currentTime,.05)}
+    if(this.el){if(this.elGain)this.elGain.gain.value=1;this.el.muted=!musicOn;if(this.mode==='mp3'&&this.el.paused&&musicOn){const p=this.el.play();p&&p.catch&&p.catch(()=>{})}}
+    if(this.yt&&this.ytReady){try{musicOn?this.yt.unMute():this.yt.mute();if(this.mode==='yt'&&musicOn&&this.yt.getPlayerState()!==1)this.yt.playVideo()}catch(e){}}
+  },
+  detect(now){
+    if(this.mode!=='mp3'||!analyser||!ac||ac.state!=='running'||!this.el||this.el.paused)return;
+    analyser.getByteFrequencyData(freqData);
+    let low=0,all=0;for(let i=1;i<5;i++)low+=freqData[i];low/=4*255;for(let i=0;i<freqData.length;i++)all+=freqData[i];all/=freqData.length*255;
+    this.energy=this.energy*.9+all*.1;this.emax=Math.max(this.emax*.9995,this.energy,.05);
+    if(low>this.bassAvg*1.25&&low>.4&&now-this.lastOnset>60000/(this.bpm||128)*.7){
+      this.lastOnset=now;curStep=Math.round(curStep/4)*4;lastPerfStepAt=now;curStepPerf=now;
+    }
+    this.bassAvg=this.bassAvg*.96+low*.04;
+  }
+};
+function visSection(bar){
+  if(music.mode==='synth')return section(bar);
+  if(music.mode==='mp3'&&music.el&&!music.el.paused){const r=music.energy/music.emax;return r>.82?'drop':r>.55?'groove':'break'}
+  return bar%32<16?'groove':'drop';
+}
+$('#nextBtn').onclick=()=>{if(!started)return;initAudio();music.next()};
+
+// ---------- admin panel ----------
+let ADM=null,admPending=new Map(),admRemember=false;
+const defRepo=(()=>{const h=location.hostname;if(h.endsWith('.github.io')){const o=h.split('.')[0];const seg=location.pathname.split('/').filter(Boolean)[0];return o+'/'+(seg||h)}return'Aexus2/rave'})();
+function openAdmin(){
+  ADM=JSON.parse(JSON.stringify(CFG));
+  $('#aT1').value=ADM.title1;$('#aT2').value=ADM.title2;$('#aTag').value=ADM.tagline;$('#aScr').value=ADM.screenText;
+  $('#aDj').value=ADM.djName;$('#aDjSub').value=ADM.djSub;
+  $('#aRepo').value=store.get('adm_repo',defRepo);const tk=store.get('adm_tok','');$('#aTok').value=tk;admRemember=!!tk;
+  $('#aRem').classList.toggle('on',admRemember);
+  admDj();admRender();$('#aStat').textContent='';$('#adm').classList.add('open');
+}
+function admDj(){$('#aDjAuto').classList.toggle('on',ADM.djMode==='auto');$('#aDjMan').classList.toggle('on',ADM.djMode==='manual');$('#aShuf').classList.toggle('on',ADM.shuffle);
+  $('#aDjHint').textContent=ADM.djMode==='auto'?'(otomatikte kimse liq olmadıysa bu görünür)':'(kabinde hep bu yazar)'}
+function admRender(){
+  $('#aTracks').innerHTML=ADM.tracks.map((t,i)=>`<div class="trk" data-i="${i}">
+   <span>${t.type==='yt'?'▶️':t.type==='mp3'?'🎵':'🎛'}</span>
+   <input data-f="title" value="${esc(t.title)}" placeholder="Şarkı adı">
+   <input data-f="bpm" type="number" min="0" max="220" value="${t.bpm||''}" placeholder="${t.type==='synth'?'Oto':'128'}" title="BPM">
+   <span class="tb"><button class="btn" data-a="play" title="Şimdi çal">▶</button><button class="btn" data-a="up">↑</button><button class="btn" data-a="dn">↓</button><button class="btn" data-a="del">🗑</button></span>
+   <small>${t.type==='synth'?'Tarayıcıda üretilen techno, tempo Ayarlar\'dan':admPending.has(t.src)?'⏳ yüklenmeyi bekliyor: '+esc(admPending.get(t.src).name)+' ('+(admPending.get(t.src).size/1048576).toFixed(1)+' MB)':esc(t.src)}</small></div>`).join('')||'<div class="note">Liste boş — en az bir şarkı ekle.</div>';
+}
+$('#aTracks').addEventListener('input',e=>{const r=e.target.closest('.trk');if(!r)return;const t=ADM.tracks[+r.dataset.i];const f=e.target.dataset.f;if(f==='title')t.title=e.target.value;if(f==='bpm')t.bpm=+e.target.value||0});
+$('#aTracks').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const i=+b.closest('.trk').dataset.i,a=b.dataset.a,T=ADM.tracks;
+  if(a==='del'){T.splice(i,1)}else if(a==='up'&&i>0){[T[i-1],T[i]]=[T[i],T[i-1]]}else if(a==='dn'&&i<T.length-1){[T[i+1],T[i]]=[T[i],T[i+1]]}
+  else if(a==='play'){admPreview();started=true;$('#ov').classList.add('gone');initAudio();music.play(i);return}
+  admRender()});
+$('#aYtAdd').onclick=()=>{const v=$('#aYt').value.trim();const id=ytId(v);if(!id){$('#aStat').textContent='❌ Geçerli bir YouTube linki değil';return}
+  ADM.tracks.push({type:'yt',title:'YouTube '+id,src:'https://youtu.be/'+id,bpm:128});$('#aYt').value='';admRender();$('#aStat').textContent='✅ YouTube eklendi — istersen adını düzelt'};
+$('#aYt').addEventListener('keydown',e=>{if(e.key==='Enter')$('#aYtAdd').click()});
+$('#aMp3').onchange=e=>{for(const f of e.target.files){if(f.size>45*1048576){$('#aStat').textContent=`❌ ${f.name} çok büyük (en fazla 45 MB)`;continue}
+  const url=URL.createObjectURL(f);admPending.set(url,f);ADM.tracks.push({type:'mp3',title:f.name.replace(/\.[^.]+$/,''),src:url,bpm:128})}
+  e.target.value='';admRender()};
+$('#aSynthAdd').onclick=()=>{ADM.tracks.push({type:'synth',title:'Dahili Techno',bpm:0});admRender()};
+$('#aDjAuto').onclick=()=>{ADM.djMode='auto';admDj()};$('#aDjMan').onclick=()=>{ADM.djMode='manual';admDj()};
+$('#aShuf').onclick=()=>{ADM.shuffle=!ADM.shuffle;admDj()};
+$('#aRem').onclick=()=>{admRemember=!admRemember;$('#aRem').classList.toggle('on',admRemember);if(!admRemember)store.set('adm_tok','')};
+function admCollect(){Object.assign(ADM,{title1:$('#aT1').value,title2:$('#aT2').value,tagline:$('#aTag').value,screenText:$('#aScr').value,djName:$('#aDj').value,djSub:$('#aDjSub').value});return ADM}
+function admPreview(){const changedMusic=JSON.stringify(CFG.tracks)!==JSON.stringify(admCollect().tracks);applyCfg(JSON.parse(JSON.stringify(ADM)),{restartMusic:changedMusic})}
+$('#aPrev').onclick=()=>{admPreview();$('#aStat').textContent='👀 Önizleme uygulandı (sadece sende). Herkes görsün diye “Yayınla”.'};
+$('#aClose').onclick=()=>$('#adm').classList.remove('open');
+const b64txt=s=>btoa(unescape(encodeURIComponent(s)));
+const b64file=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(f)});
+async function ghPut(repo,tok,path,content,msg){
+  const api=`https://api.github.com/repos/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+  const H={Authorization:'Bearer '+tok,Accept:'application/vnd.github+json'};
+  let sha;const g=await fetch(api+'?t='+Date.now(),{headers:H});if(g.ok){sha=(await g.json()).sha}else if(g.status===401)throw new Error('Token geçersiz (401)');
+  const r=await fetch(api,{method:'PUT',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({message:msg,content,sha})});
+  if(!r.ok){let m='';try{m=(await r.json()).message}catch(e){}throw new Error(`${path}: ${r.status} ${m}`)}
+}
+$('#aPub').onclick=async()=>{
+  const repo=$('#aRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,''),tok=$('#aTok').value.trim(),st=$('#aStat');
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){st.textContent='❌ Repo “kullanıcı/repo” biçiminde olmalı';return}
+  if(!tok){st.textContent='❌ Yayınlamak için GitHub token gerekli';return}
+  store.set('adm_repo',repo);if(admRemember)store.set('adm_tok',tok);
+  const btn=$('#aPub');btn.disabled=true;
+  try{
+    const cfg=JSON.parse(JSON.stringify(admCollect()));
+    for(const t of cfg.tracks){
+      if(t.type==='mp3'&&admPending.has(t.src)){
+        const f=admPending.get(t.src);const slug=(f.name.replace(/\.[^.]+$/,'').toLocaleLowerCase('tr').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ı/g,'i').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'sarki').slice(0,40);
+        const path=`music/${Date.now().toString(36)}-${slug}.mp3`;
+        st.textContent=`⏫ Yükleniyor: ${f.name} (${(f.size/1048576).toFixed(1)} MB)…`;
+        await ghPut(repo,tok,path,await b64file(f),'Müzik eklendi: '+f.name);
+        const old=t.src;t.src=path;admPending.delete(old);ADM.tracks.forEach(x=>{if(x.src===old)x.src=path});
+      }
+    }
+    st.textContent='⏫ Ayarlar kaydediliyor…';
+    await ghPut(repo,tok,'config.json',b64txt(JSON.stringify(sanitizeCfg(cfg),null,2)+'\n'),'Admin: ayarlar güncellendi');
+    applyCfg(cfg,{restartMusic:JSON.stringify(CFG.tracks)!==JSON.stringify(cfg.tracks)});admRender();
+    st.textContent='🚀 Yayınlandı! GitHub Pages ~1 dakika içinde güncellenir, sonra herkes görür.';
+  }catch(e){st.textContent='❌ Hata: '+(e.message||e)+'\nToken\'ın bu repoya “Contents: Read and write” izni olmalı.'}
+  btn.disabled=false;
+};
+function checkAdminHash(){if(location.hash==='#admin')openAdmin()}
+addEventListener('hashchange',checkAdminHash);checkAdminHash();
+addEventListener('keydown',e=>{if(e.shiftKey&&e.altKey&&(e.key==='A'||e.key==='a'))openAdmin()});
+
 // ---------- loop ----------
 function frame(now){
-  if(+$('#tempo').value===0){const b=autoBpm();if(b!==bpm)bpm=b}
+  if(music.mode==='synth'){if(+$('#tempo').value===0){const b=autoBpm();if(b!==bpm)bpm=b}}
+  else bpm=music.bpm||128;
+  music.detect(now);
   updateClock(now);
   drawScene(now);
   requestAnimationFrame(frame);

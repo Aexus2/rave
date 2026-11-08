@@ -1,0 +1,18 @@
+{
+  "title1": "LİQ",
+  "title2": "RAVE",
+  "tagline": "Liq olduysan, stop yediysen — piste gel, DJ kabini seni bekliyor!",
+  "screenText": "LİQ RAVE",
+  "djMode": "auto",
+  "djName": "DJ MARGIN CALL",
+  "djSub": "şu an kabinde 🎧",
+  "shuffle": false,
+  "tracks": [
+    {
+      "type": "synth",
+      "title": "Dahili Techno",
+      "src": "",
+      "bpm": 0
+    }
+  ]
+}
