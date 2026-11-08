@@ -6,8 +6,21 @@
   "djMode": "auto",
   "djName": "Dj Aexus",
   "djSub": "şu an kabinde 🎧",
-  "shuffle": false,
+  "rules": "💬 Mesaj at — en çok mesaj atan **en iyi dansçı** olur 👑\n🕺 Piste tıkla, istediğin yerde dans et\n🙌 Butonlarla eller havaya, zıpla, **lazer şov** yap\n🎧 Kabindeki DJ'e selam ver, partiye katıl!",
+  "shuffle": true,
   "tracks": [
+    {
+      "type": "synth",
+      "title": "Dahili Techno",
+      "src": "",
+      "bpm": 0
+    },
+    {
+      "type": "synth",
+      "title": "Dahili Techno",
+      "src": "",
+      "bpm": 0
+    },
     {
       "type": "synth",
       "title": "Dahili Techno",
