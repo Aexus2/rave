@@ -1,0 +1,9 @@
+{
+  "name": "kimse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kimse: rastgele anonim sesli sohbet",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Kimse — moderasyon</title>
+<style>
+  :root{--bg:#0c0d10;--panel:#15171c;--line:#262a33;--text:#eceef2;--dim:#8b91a0;--accent:#c8f24a;--danger:#ff5d5d}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:20px;max-width:720px;margin:0 auto}
+  h1{font-size:22px;margin-bottom:4px}
+  h2{font-size:16px;margin:26px 0 10px;color:var(--dim);font-weight:600}
+  .row{display:flex;gap:8px;margin:14px 0}
+  input{flex:1;min-width:0;font:inherit;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  button{font:inherit;font-weight:700;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:10px 14px;cursor:pointer;min-height:44px}
+  button.ban{color:var(--danger)}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
+  .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .nick{font-weight:700;overflow-wrap:anywhere}
+  .meta{color:var(--dim);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12px;margin-right:6px}
+  .pill.hot{border-color:var(--danger);color:var(--danger)}
+  .pill.ok{border-color:var(--accent);color:var(--accent)}
+  .msg{color:var(--dim);font-size:14px;min-height:20px}
+</style>
+</head>
+<body>
+<h1>Moderasyon</h1>
+<div class="msg" id="msg">Panel şifresini gir.</div>
+<div class="row">
+  <input type="password" id="key" placeholder="ADMIN_KEY" autocomplete="off">
+  <button id="load">Yükle</button>
+</div>
+
+<h2 id="h-reports" hidden>Şikayetler</h2>
+<div id="reports"></div>
+<h2 id="h-bans" hidden>Yasaklı IP'ler</h2>
+<div id="bans"></div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var REASON={taciz:'Taciz / cinsel içerik',hakaret:'Küfür / hakaret',tehdit:'Tehdit','resit-degil':'18 yaşından küçük gibi',diger:'Diğer'};
+  function el(tag, cls, text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+  function when(t){ return new Date(t).toLocaleString('tr-TR'); }
+  function api(path, body){
+    return fetch(path, {method: body?'POST':'GET',
+      headers:{'Content-Type':'application/json','x-admin-key':$('key').value},
+      body: body?JSON.stringify(body):undefined});
+  }
+  async function act(path, ip){
+    var r=await api(path,{ip:ip});
+    $('msg').textContent = r.ok ? 'Tamam: '+ip : 'İşlem başarısız.';
+    load();
+  }
+  async function load(){
+    var r;
+    try{ r=await api('/api/admin/reports'); }catch(e){ $('msg').textContent='Sunucuya ulaşılamadı.'; return; }
+    if(r.status===503){ $('msg').textContent='Sunucuda ADMIN_KEY tanımlı değil, panel kapalı.'; return; }
+    if(!r.ok){ $('msg').textContent='Şifre yanlış.'; return; }
+    var d=await r.json();
+    $('msg').textContent='Şu an çevrimiçi: '+d.online+' · Şikayet: '+d.reports.length+' · Yasaklı: '+d.bans.length;
+    $('h-reports').hidden=false; $('h-bans').hidden=false;
+
+    var box=$('reports'); box.textContent='';
+    if(!d.reports.length) box.appendChild(el('div','meta','Henüz şikayet yok.'));
+    d.reports.forEach(function(x){
+      var it=el('div','item'), top=el('div','top'), left=el('div');
+      left.appendChild(el('div','nick',x.targetNick));
+      var pills=el('div');
+      pills.appendChild(el('span','pill',REASON[x.reason]||x.reason));
+      pills.appendChild(el('span','pill'+(x.targetReportCount>=3?' hot':''),'bu IP: '+x.targetReportCount+' şikayet'));
+      if(x.targetBanned) pills.appendChild(el('span','pill ok','yasaklı'));
+      left.appendChild(pills);
+      top.appendChild(left);
+      var b=el('button', x.targetBanned?'':'ban', x.targetBanned?'Yasağı kaldır':'IP yasakla');
+      b.onclick=function(){ act(x.targetBanned?'/api/admin/unban':'/api/admin/ban', x.targetIp); };
+      top.appendChild(b);
+      it.appendChild(top);
+      it.appendChild(el('div','meta','IP: '+x.targetIp+' · '+when(x.at)));
+      it.appendChild(el('div','meta','Şikayet eden: '+x.reporterNick+' ('+x.reporterIp+')'));
+      box.appendChild(it);
+    });
+
+    var bb=$('bans'); bb.textContent='';
+    if(!d.bans.length) bb.appendChild(el('div','meta','Yasaklı IP yok.'));
+    d.bans.forEach(function(x){
+      var it=el('div','item'), top=el('div','top');
+      top.appendChild(el('div','nick',x.ip));
+      var b=el('button','','Yasağı kaldır'); b.onclick=function(){ act('/api/admin/unban', x.ip); };
+      top.appendChild(b); it.appendChild(top);
+      it.appendChild(el('div','meta',when(x.at)));
+      bb.appendChild(it);
+    });
+  }
+  $('load').onclick=load;
+  $('key').addEventListener('keydown',function(e){ if(e.key==='Enter') load(); });
+})();
+</script>
+</body>
+</html>

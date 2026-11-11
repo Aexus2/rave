@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kimse — rastgele biriyle sesli konuş</title>
+<meta name="description" content="Kayıt yok, görüntü yok. Bir takma ad seç, tek tuşla rastgele biriyle sesli konuş.">
+<style>
+  :root{
+    --bg:#0c0d10; --panel:#15171c; --line:#262a33; --text:#eceef2; --dim:#8b91a0;
+    --accent:#c8f24a; --accent-ink:#141a00; --danger:#ff5d5d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px 20px 28px; -webkit-tap-highlight-color:transparent;
+  }
+  header{width:100%;max-width:440px;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .logo{font-weight:800;font-size:22px;letter-spacing:-.02em}
+  .logo span{color:var(--accent)}
+  .tag{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  main{flex:1;width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:20px}
+  .orb-wrap{position:relative;width:200px;height:200px;display:grid;place-items:center}
+  .ring{position:absolute;inset:0;border-radius:50%;border:1px solid var(--line)}
+  .ring.r2{inset:24px}
+  .orb{width:110px;height:110px;border-radius:50%;background:var(--panel);border:1px solid var(--line);
+    transition:background .3s, transform .08s linear, box-shadow .3s}
+  body[data-state="searching"] .orb, body[data-state="connecting"] .orb{animation:breathe 1.4s ease-in-out infinite;border-color:var(--accent)}
+  body[data-state="connected"] .orb{background:var(--accent);border-color:var(--accent);box-shadow:0 0 60px rgba(200,242,74,.25)}
+  @keyframes breathe{0%,100%{transform:scale(.9);opacity:.6}50%{transform:scale(1.08);opacity:1}}
+  h1{font-size:26px;line-height:1.2;letter-spacing:-.02em}
+  .status{font-size:20px;font-weight:700;min-height:26px;overflow-wrap:anywhere}
+  .sub{color:var(--dim);font-size:14px;line-height:1.5;min-height:42px;max-width:320px}
+  .timer{font-variant-numeric:tabular-nums;font-size:15px;color:var(--dim)}
+  .controls{display:flex;gap:10px;width:100%;justify-content:center;flex-wrap:wrap}
+  button{font:inherit;font-weight:700;border-radius:999px;border:1px solid var(--line);
+    background:var(--panel);color:var(--text);padding:14px 20px;font-size:16px;cursor:pointer;min-height:52px}
+  button:active{transform:scale(.97)}
+  button:disabled{opacity:.5}
+  button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);padding:16px 34px;font-size:18px}
+  button.danger{color:var(--danger)}
+  button.on{background:var(--danger);color:#fff;border-color:var(--danger)}
+  button.link{background:none;border:none;color:var(--dim);font-weight:600;font-size:14px;min-height:44px;text-decoration:underline}
+  [hidden]{display:none!important}
+  footer{color:var(--dim);font-size:12px;text-align:center;max-width:440px;line-height:1.5}
+  .overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;z-index:5}
+  .overlay.dim{background:rgba(6,7,9,.86)}
+  .card{width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px}
+  .card ul{list-style:none;display:flex;flex-direction:column;gap:10px;color:var(--dim);font-size:15px;line-height:1.45}
+  .card li{padding-left:18px;position:relative}
+  .card li::before{content:"";position:absolute;left:0;top:.55em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .card small{color:var(--dim);font-size:12px;line-height:1.5}
+  label{font-size:13px;color:var(--dim);display:block;margin-bottom:6px;text-align:left}
+  .nickrow{display:flex;gap:8px}
+  input[type=text]{flex:1;min-width:0;font:inherit;font-size:17px;background:var(--panel);color:var(--text);
+    border:1px solid var(--line);border-radius:14px;padding:14px 16px;outline:none}
+  input[type=text]:focus{border-color:var(--accent)}
+  .dice{border-radius:14px;padding:0 16px;font-size:20px}
+  .err{color:var(--danger);font-size:14px;min-height:20px}
+  .reasons{display:flex;flex-direction:column;gap:8px}
+  .reasons button{border-radius:14px;text-align:left}
+</style>
+</head>
+<body data-state="idle">
+
+<div class="overlay" id="gate">
+  <div class="card">
+    <div class="logo">kim<span>se</span></div>
+    <h1>Rastgele biriyle sesli konuş.</h1>
+    <ul>
+      <li>Kayıt ve görüntü yok. Sadece ses ve bir takma ad.</li>
+      <li>Gerçek adını, adresini, numaranı paylaşma.</li>
+      <li>Hakaret, taciz ve tehdit yasak. Şikayet edilenler siteden engellenir.</li>
+      <li>Bu site yalnızca 18 yaş ve üzeri içindir.</li>
+    </ul>
+    <div>
+      <label for="nick">Takma adın</label>
+      <div class="nickrow">
+        <input type="text" id="nick" maxlength="20" autocomplete="off" spellcheck="false">
+        <button class="dice" id="dice" title="Rastgele takma ad" aria-label="Rastgele takma ad">⟳</button>
+      </div>
+    </div>
+    <div class="err" id="gateErr"></div>
+    <button class="primary" id="enter">18 yaşından büyüğüm, gir</button>
+    <small>Konuşmalar kaydedilmez. Kötüye kullanımı önlemek için IP adresin işlenir ve şikayet edilirsen moderasyon tarafından görülebilir.</small>
+  </div>
+</div>
+
+<div class="overlay dim" id="reportBox" hidden>
+  <div class="card">
+    <h1 id="reportTitle">Şikayet et</h1>
+    <div class="reasons">
+      <button data-r="taciz">Taciz / cinsel içerik</button>
+      <button data-r="hakaret">Küfür / hakaret</button>
+      <button data-r="tehdit">Tehdit</button>
+      <button data-r="resit-degil">18 yaşından küçük gibi</button>
+      <button data-r="diger">Diğer</button>
+    </div>
+    <button class="link" id="reportCancel">Vazgeç</button>
+  </div>
+</div>
+
+<header>
+  <div class="logo">kim<span>se</span></div>
+  <div class="tag" id="me">anonim · sadece ses</div>
+</header>
+
+<main>
+  <div class="orb-wrap">
+    <div class="ring"></div><div class="ring r2"></div>
+    <div class="orb" id="orb"></div>
+  </div>
+  <div>
+    <div class="status" id="status">Hazır mısın?</div>
+    <div class="timer" id="timer" hidden>00:00</div>
+  </div>
+  <div class="sub" id="sub">Tuşa bas, sıradaki kişiyle eşleş. Beğenmezsen geç.</div>
+
+  <div class="controls">
+    <button class="primary" id="start">Konuşmaya başla</button>
+    <button id="mute" hidden>Sustur</button>
+    <button id="next" hidden>Geç</button>
+    <button class="danger" id="stop" hidden>Bitir</button>
+  </div>
+  <button class="link" id="report" hidden>Şikayet et</button>
+</main>
+
+<footer>Kimse seni tanımıyor. Sen de kimseye kendini tanıtmak zorunda değilsin.</footer>
+
+<audio id="remote" autoplay playsinline></audio>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var statusEl=$('status'), subEl=$('sub'), timerEl=$('timer'), orb=$('orb'), audio=$('remote');
+  var bStart=$('start'), bMute=$('mute'), bNext=$('next'), bStop=$('stop'), bReport=$('report');
+
+  var sess=null, es=null, stream=null, pc=null, pendingIce=[], partnerNick='', lastNick='', canReport=false;
+  var state='idle', timerInt=null, connT=null, startedAt=0, muted=false;
+  var actx=null, analyser=null, raf=0;
+  var IDLE_SUB='Tuşa bas, sıradaki kişiyle eşleş. Beğenmezsen geç.';
+
+  /* ---- takma ad ---- */
+  var A=['Mavi','Sessiz','Uykusuz','Gezgin','Neşeli','Yorgun','Meraklı','Kayıp','Gece','Rüzgarlı','Sakin','Deli'];
+  var B=['Kirpi','Martı','Baykuş','Tilki','Kedi','Kaplumbağa','Serçe','Yunus','Karga','Ayı','Leylek','Sincap'];
+  function randomNick(){ return A[Math.floor(Math.random()*A.length)]+' '+B[Math.floor(Math.random()*B.length)]+' '+(10+Math.floor(Math.random()*90)); }
+  var nickIn=$('nick');
+  try{ nickIn.value = localStorage.getItem('kimse-nick') || ''; }catch(e){}
+  if(!nickIn.value) nickIn.value=randomNick();
+  $('dice').onclick=function(){ nickIn.value=randomNick(); };
+
+  function setState(s, title, sub){
+    state=s; document.body.dataset.state=s;
+    if(title!=null) statusEl.textContent=title;
+    if(sub!=null) subEl.textContent=sub;
+    bStart.hidden = s!=='idle';
+    bStop.hidden  = s==='idle';
+    bNext.hidden  = s!=='connected';
+    bMute.hidden  = s!=='connected';
+    timerEl.hidden= s!=='connected';
+    bReport.hidden = !(canReport && (s==='connected' || s==='idle'));
+    bReport.textContent = s==='connected' ? 'Şikayet et' : ('Son konuştuğunu şikayet et' + (lastNick ? ' ('+lastNick+')' : ''));
+  }
+
+  function post(path, body){
+    return fetch(path, {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({}, sess ? {id:sess.id, secret:sess.secret} : {}, body||{}))});
+  }
+
+  function closePc(){
+    clearTimeout(connT); clearInterval(timerInt); cancelAnimationFrame(raf);
+    orb.style.transform=''; analyser=null; pendingIce=[];
+    if(pc){ try{ pc.ontrack=pc.onicecandidate=pc.onconnectionstatechange=null; pc.close(); }catch(e){} }
+    pc=null; audio.srcObject=null; partnerNick='';
+  }
+
+  function endSession(title, sub){
+    closePc();
+    if(es){ try{ es.close(); }catch(e){} es=null; }
+    sess=null;
+    setState('idle', title||'Hazır mısın?', sub||IDLE_SUB);
+  }
+
+  /* ---- oturum ---- */
+  async function openSession(){
+    var r = await post('/api/session', {nick: nickIn.value});
+    if(r.status===403) throw new Error('banned');
+    if(r.status===429) throw new Error('limit');
+    if(!r.ok) throw new Error('nick');
+    sess = await r.json();
+    $('me').textContent = sess.nick + ' · sadece ses';
+    await new Promise(function(resolve, reject){
+      es = new EventSource('/api/events?id='+sess.id+'&secret='+sess.secret);
+      es.addEventListener('ready', resolve);
+      es.addEventListener('matched', function(e){ onMatched(JSON.parse(e.data)); });
+      es.addEventListener('signal', function(e){ onSignal(JSON.parse(e.data)); });
+      es.addEventListener('left', function(){ onLeft(); });
+      es.addEventListener('banned', function(){ endSession('Siteden engellendin','Şikayetler sonucu erişimin kapatıldı.'); });
+      es.onerror = function(){
+        reject(new Error('baglanti'));
+        if(sess && state!=='idle') endSession('Bağlantı koptu','İnternetini kontrol edip tekrar dene.');
+        else if(es){ try{ es.close(); }catch(e){} es=null; sess=null; }
+      };
+    });
+  }
+
+  async function begin(){
+    bStart.disabled=true;
+    try{
+      if(!stream){
+        try{
+          stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+        }catch(e){ setState('idle','Mikrofon izni gerekli','Tarayıcı ayarlarından mikrofona izin verip tekrar dene.'); return; }
+      }
+      try{
+        if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+        if(actx.state==='suspended') actx.resume();
+      }catch(e){}
+      if(!sess){
+        try{ await openSession(); }
+        catch(e){
+          if(e.message==='banned') setState('idle','Siteden engellendin','Şikayetler sonucu erişimin kapatıldı.');
+          else if(e.message==='limit') setState('idle','Çok fazla açık sekme','Diğer sekmeleri kapatıp tekrar dene.');
+          else if(e.message==='nick'){ $('gate').hidden=false; $('gateErr').textContent='Takma ad en az 2 karakter olmalı.'; }
+          else setState('idle','Sunucuya ulaşılamadı','Biraz sonra tekrar dene.');
+          return;
+        }
+      }
+      search();
+    } finally { bStart.disabled=false; }
+  }
+
+  function search(){
+    closePc();
+    setState('searching','Biri aranıyor…','Şu an kimse yoksa sıradaki gelene kadar beklersin.');
+    post('/api/find').catch(function(){});
+  }
+
+  /* ---- WebRTC ---- */
+  function sig(d){ post('/api/signal', {data:d}).catch(function(){}); }
+
+  async function onMatched(m){
+    closePc();
+    partnerNick = m.nick; lastNick = m.nick; canReport = true;
+    setState('connecting', m.nick, 'Bağlanıyor…');
+    pc = new RTCPeerConnection({iceServers: sess.iceServers});
+    var mine = pc;
+    stream.getTracks().forEach(function(t){ mine.addTrack(t, stream); });
+    mine.onicecandidate = function(e){ if(e.candidate) sig({candidate:e.candidate}); };
+    mine.ontrack = function(e){
+      var rs = e.streams[0] || new MediaStream([e.track]);
+      audio.srcObject = rs;
+      var pr=audio.play(); if(pr && pr.catch) pr.catch(function(){});
+      meter(rs);
+    };
+    mine.onconnectionstatechange = function(){
+      if(pc!==mine) return;
+      var s=mine.connectionState;
+      if(s==='connected' && state==='connecting') onConnected();
+      else if(s==='failed') search();
+      else if(s==='disconnected') setTimeout(function(){ if(pc===mine && mine.connectionState!=='connected') search(); }, 4000);
+    };
+    connT = setTimeout(function(){ if(pc===mine && state==='connecting') search(); }, 12000);
+    if(m.initiator){
+      try{
+        var offer = await mine.createOffer();
+        await mine.setLocalDescription(offer);
+        sig({sdp: mine.localDescription});
+      }catch(e){ search(); }
+    }
+  }
+
+  async function onSignal(d){
+    if(!pc || !d) return;
+    var mine=pc;
+    try{
+      if(d.sdp){
+        await mine.setRemoteDescription(d.sdp);
+        var q=pendingIce; pendingIce=[];
+        for(var i=0;i<q.length;i++){ try{ await mine.addIceCandidate(q[i]); }catch(e){} }
+        if(d.sdp.type==='offer'){
+          var ans = await mine.createAnswer();
+          await mine.setLocalDescription(ans);
+          sig({sdp: mine.localDescription});
+        }
+      }else if(d.candidate){
+        if(mine.remoteDescription && mine.remoteDescription.type) await mine.addIceCandidate(d.candidate);
+        else pendingIce.push(d.candidate);
+      }
+    }catch(e){}
+  }
+
+  function onConnected(){
+    clearTimeout(connT);
+    setState('connected', partnerNick, 'Bağlandın. Selam ver.');
+    startedAt=Date.now(); tick(); timerInt=setInterval(tick,1000);
+    muted=false; applyMute();
+  }
+
+  function onLeft(){
+    if(state==='connected' || state==='connecting'){
+      var n=partnerNick; closePc();
+      setState('idle', (n||'Karşı taraf')+' ayrıldı', 'Yeni biriyle konuşmak için tekrar bas.');
+    }
+  }
+
+  function meter(rs){
+    try{
+      if(!actx) return;
+      var src=actx.createMediaStreamSource(rs);
+      analyser=actx.createAnalyser(); analyser.fftSize=256; src.connect(analyser);
+      var a=analyser, buf=new Uint8Array(a.frequencyBinCount);
+      (function loop(){
+        if(analyser!==a) return;
+        a.getByteTimeDomainData(buf);
+        var sum=0; for(var i=0;i<buf.length;i++){ var v=(buf[i]-128)/128; sum+=v*v; }
+        var lvl=Math.min(1, Math.sqrt(sum/buf.length)*4);
+        orb.style.transform='scale('+(1+lvl*.45).toFixed(3)+')';
+        raf=requestAnimationFrame(loop);
+      })();
+    }catch(e){}
+  }
+
+  function tick(){
+    var s=Math.floor((Date.now()-startedAt)/1000);
+    timerEl.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  }
+  function applyMute(){
+    if(stream) stream.getAudioTracks().forEach(function(tr){ tr.enabled=!muted; });
+    bMute.textContent = muted ? 'Sesi aç' : 'Sustur';
+    bMute.classList.toggle('on', muted);
+  }
+  function stop(){
+    closePc();
+    post('/api/leave').catch(function(){});
+    setState('idle','Hazır mısın?',IDLE_SUB);
+  }
+
+  /* ---- şikayet ---- */
+  bReport.onclick=function(){
+    $('reportTitle').textContent = (lastNick||'Bu kişi')+' için şikayet';
+    $('reportBox').hidden=false;
+  };
+  $('reportCancel').onclick=function(){ $('reportBox').hidden=true; };
+  Array.prototype.forEach.call(document.querySelectorAll('.reasons button'), function(b){
+    b.onclick=async function(){
+      $('reportBox').hidden=true;
+      var wasTalking = state==='connected' || state==='connecting';
+      var ok=false;
+      try{ var r=await post('/api/report', {reason:b.dataset.r}); ok=r.ok; }catch(e){}
+      canReport=false;
+      if(wasTalking){ closePc(); post('/api/leave').catch(function(){}); }
+      setState('idle', ok ? 'Şikayetin alındı' : 'Şikayet gönderilemedi',
+        ok ? 'Moderasyon inceleyecek. Yeni biriyle konuşmak için tekrar bas.' : 'Bağlantını kontrol edip tekrar dene.');
+    };
+  });
+
+  $('enter').onclick=function(){
+    var v=nickIn.value.replace(/\s+/g,' ').trim();
+    if(v.length<2){ $('gateErr').textContent='Takma ad en az 2 karakter olmalı.'; return; }
+    nickIn.value=v; $('gateErr').textContent='';
+    try{ localStorage.setItem('kimse-nick', v); }catch(e){}
+    $('me').textContent = v + ' · sadece ses';
+    $('gate').hidden=true;
+  };
+  bStart.onclick=begin;
+  bNext.onclick=search;
+  bStop.onclick=stop;
+  bMute.onclick=function(){ muted=!muted; applyMute(); };
+})();
+</script>
+</body>
+</html>
