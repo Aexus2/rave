@@ -1,0 +1,12 @@
+# Render tek tık kurulum: https://render.com/deploy?repo=https://github.com/Aexus2/rave
+services:
+  - type: web
+    name: kimse
+    runtime: node
+    plan: free
+    rootDir: kimse
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: ADMIN_KEY
+        generateValue: true
