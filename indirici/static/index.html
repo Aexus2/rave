@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel İndirici</title>
+<style>
+  :root{--bg:#f6f5f2;--card:#fff;--text:#1b1b1f;--muted:#6b6b73;--line:#e3e1dc;--accent:#d6336c;--accent-ink:#fff;--err:#b42318}
+  @media (prefers-color-scheme:dark){:root{--bg:#121215;--card:#1c1c21;--text:#f2f2f4;--muted:#9a9aa3;--line:#2e2e35;--accent:#f06595;--accent-ink:#121215;--err:#ff8a80}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;justify-content:center;padding:48px 16px}
+  main{width:100%;max-width:520px}
+  h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
+  p.sub{margin:0 0 24px;color:var(--muted)}
+  form{display:flex;flex-direction:column;gap:10px}
+  input{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);font:inherit}
+  input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+  button,a.btn{display:inline-flex;justify-content:center;align-items:center;gap:8px;padding:14px 18px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-weight:600;font-size:16px;line-height:1;cursor:pointer;text-decoration:none}
+  button:disabled{opacity:.6;cursor:progress}
+  .card{margin-top:20px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .card img{display:block;width:100%;max-height:420px;object-fit:cover;background:var(--line)}
+  .card .body{padding:16px;display:flex;flex-direction:column;gap:10px}
+  .owner{font-weight:600}
+  .cap{color:var(--muted);font-size:14px;margin:0;overflow-wrap:anywhere}
+  .err{margin-top:16px;color:var(--err)}
+  .note{margin-top:28px;font-size:13px;color:var(--muted)}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Reel İndirici</h1>
+  <p class="sub">Instagram reel ya da video linkini yapıştır.</p>
+  <form id="f">
+    <input id="url" type="url" required placeholder="https://www.instagram.com/reel/..." autocomplete="off">
+    <input id="key" type="password" placeholder="Erişim anahtarı" autocomplete="current-password" hidden>
+    <button id="go" type="submit">Getir</button>
+  </form>
+  <div id="err" class="err" role="alert" hidden></div>
+  <div id="res" class="card" hidden>
+    <img id="thumb" alt="">
+    <div class="body">
+      <div class="owner" id="owner"></div>
+      <p class="cap" id="cap"></p>
+      <a class="btn" id="dl" href="#">Videoyu indir</a>
+    </div>
+  </div>
+  <p class="note">Sadece herkese açık gönderiler indirilebilir. Başkasının videosunu paylaşmadan önce sahibinden izin al.</p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let key = "";
+try { key = localStorage.getItem("igdl_key") || ""; } catch (e) {}
+$("key").value = key;
+
+async function call(path, url) {
+  const q = new URLSearchParams({ url });
+  const r = await fetch(path + "?" + q, { headers: key ? { "X-Access-Key": key } : {} });
+  if (r.status === 401) { $("key").hidden = false; throw new Error("Erişim anahtarını gir."); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "Bir hata oluştu.");
+  return j;
+}
+
+$("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  key = $("key").value.trim();
+  try { localStorage.setItem("igdl_key", key); } catch (e) {}
+  $("err").hidden = true; $("res").hidden = true;
+  $("go").disabled = true; $("go").textContent = "Aranıyor…";
+  try {
+    const url = $("url").value.trim();
+    const i = await call("/api/info", url);
+    $("thumb").src = i.thumbnail || "";
+    $("thumb").hidden = !i.thumbnail;
+    $("owner").textContent = i.owner ? "@" + i.owner : "";
+    $("cap").textContent = i.title || "";
+    const q = new URLSearchParams({ url: i.url });
+    if (key) q.set("key", key);
+    $("dl").href = "/api/download?" + q;
+    $("res").hidden = false;
+  } catch (er) {
+    $("err").textContent = er.message; $("err").hidden = false;
+  } finally {
+    $("go").disabled = false; $("go").textContent = "Getir";
+  }
+});
+</script>
+</body>
+</html>
