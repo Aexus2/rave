@@ -3,6 +3,10 @@ import os
 import re
 import shutil
 import tempfile
+import threading
+import time
+import uuid
+import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -110,6 +114,97 @@ def download():
     f = max(files, key=lambda p: p.stat().st_size)
     owner = re.sub(r"[^A-Za-z0-9_.-]", "", i.get("uploader_id") or "instagram")
     return send_file(f, as_attachment=True, download_name=f"{owner}_{i.get('id', 'video')}{f.suffix}")
+
+
+# ------------------------------------------------------------ Toplu indirme
+MAX_BULK = 25
+JOB_TTL = 60 * 60  # ZIP 1 saat saklanır
+JOBS = {}
+JOBS_LOCK = threading.Lock()
+
+
+def _gc_jobs():
+    cutoff = time.time() - JOB_TTL
+    with JOBS_LOCK:
+        for jid in [j for j, v in JOBS.items() if v["created"] < cutoff]:
+            shutil.rmtree(JOBS.pop(jid)["dir"], ignore_errors=True)
+
+
+def _run_job(jid):
+    job = JOBS[jid]
+    vids = Path(job["dir"]) / "videos"
+    vids.mkdir()
+    for item in job["items"]:
+        item["status"] = "indiriliyor"
+        try:
+            tmpl = f"{vids}/%(uploader_id,uploader|instagram)s_%(id)s.%(ext)s"
+            with yt_dlp.YoutubeDL(ydl_opts(outtmpl=tmpl)) as ydl:
+                ydl.extract_info(item["url"], download=True)
+            item["status"] = "tamam"
+        except Exception as e:  # noqa: BLE001
+            app.logger.warning("toplu hata %s: %s", item["url"], e)
+            item["status"] = "hata"
+            item["error"] = friendly(e)
+        time.sleep(2)  # Instagram'ı boğmamak için
+    files = sorted(p for p in vids.iterdir() if p.is_file())
+    if files:
+        zpath = Path(job["dir"]) / "videolar.zip"
+        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_STORED) as z:
+            for f in files:
+                z.write(f, f.name)
+        shutil.rmtree(vids, ignore_errors=True)
+        job["zip"] = str(zpath)
+    job["done"] = True
+
+
+@app.post("/api/bulk")
+def bulk_start():
+    if (err := check_key()):
+        return err
+    _gc_jobs()
+    raw = (request.get_json(silent=True) or {}).get("urls", "")
+    lines = raw if isinstance(raw, list) else re.split(r"[\s,]+", raw)
+    urls, bad = [], []
+    for line in lines:
+        if not line.strip():
+            continue
+        u = clean_url(line)
+        (urls if u else bad).append(u or line.strip())
+    urls = list(dict.fromkeys(urls))
+    if not urls:
+        return jsonify(error="Geçerli Instagram linki bulunamadı."), 400
+    if len(urls) > MAX_BULK:
+        return jsonify(error=f"Tek seferde en fazla {MAX_BULK} link."), 400
+    jid = uuid.uuid4().hex
+    JOBS[jid] = {
+        "created": time.time(),
+        "dir": tempfile.mkdtemp(prefix="igbulk_"),
+        "items": [{"url": u, "status": "sırada"} for u in urls],
+        "done": False,
+        "zip": None,
+    }
+    threading.Thread(target=_run_job, args=(jid,), daemon=True).start()
+    return jsonify(id=jid, count=len(urls), skipped=bad)
+
+
+@app.get("/api/bulk/<jid>")
+def bulk_status(jid):
+    if (err := check_key()):
+        return err
+    job = JOBS.get(jid)
+    if not job:
+        return jsonify(error="İş bulunamadı ya da süresi doldu."), 404
+    return jsonify(done=job["done"], has_zip=bool(job["zip"]), items=job["items"])
+
+
+@app.get("/api/bulk/<jid>/zip")
+def bulk_zip(jid):
+    if (err := check_key()):
+        return err
+    job = JOBS.get(jid)
+    if not job or not job.get("zip"):
+        return jsonify(error="ZIP hazır değil ya da süresi doldu."), 404
+    return send_file(job["zip"], as_attachment=True, download_name="instagram_videolar.zip")
 
 
 @app.get("/")

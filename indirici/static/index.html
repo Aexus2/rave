@@ -24,17 +24,34 @@
   .cap{color:var(--muted);font-size:14px;margin:0;overflow-wrap:anywhere}
   .err{margin-top:16px;color:var(--err)}
   .note{margin-top:28px;font-size:13px;color:var(--muted)}
+  .tabs{display:flex;gap:6px;margin:0 0 16px;background:var(--line);padding:4px;border-radius:12px}
+  .tabs button{flex:1;background:transparent;color:var(--muted);padding:10px;font-size:15px}
+  .tabs button[aria-selected=true]{background:var(--card);color:var(--text)}
+  textarea{width:100%;min-height:150px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);font:14px/1.5 ui-monospace,Menlo,monospace;resize:vertical}
+  textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+  .hint{font-size:13px;color:var(--muted);margin:0}
+  ul.items{list-style:none;margin:0;padding:0;font-size:13px}
+  ul.items li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+  ul.items li:first-child{border-top:0}
+  ul.items .u{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+  .st-tamam{color:#2b8a3e}.st-hata{color:var(--err)}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
   [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <main>
   <h1>Reel İndirici</h1>
+  <input id="key" type="password" placeholder="Erişim anahtarı" autocomplete="current-password" style="margin-bottom:12px" hidden>
   <p class="sub">Instagram reel ya da video linkini yapıştır.</p>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="t1" aria-selected="true">Tek video</button>
+    <button type="button" role="tab" id="t2" aria-selected="false">Toplu indir</button>
+  </div>
   <form id="f">
     <input id="url" type="url" required placeholder="https://www.instagram.com/reel/..." autocomplete="off">
-    <input id="key" type="password" placeholder="Erişim anahtarı" autocomplete="current-password" hidden>
-    <button id="go" type="submit">Getir</button>
+        <button id="go" type="submit">Getir</button>
   </form>
   <div id="err" class="err" role="alert" hidden></div>
   <div id="res" class="card" hidden>
@@ -45,6 +62,25 @@
       <a class="btn" id="dl" href="#">Videoyu indir</a>
     </div>
   </div>
+
+  <section id="bulk" hidden>
+    <form id="bf">
+      <textarea id="urls" placeholder="Her satıra bir link (en fazla 25)&#10;https://www.instagram.com/reel/...&#10;https://www.instagram.com/p/..."></textarea>
+      <button id="bgo" type="submit">Hepsini indir (ZIP)</button>
+    </form>
+    <div id="berr" class="err" role="alert" hidden></div>
+    <div id="job" class="card" hidden>
+      <div class="body">
+        <div class="owner" id="jstat"></div>
+        <ul class="items" id="items"></ul>
+        <a class="btn" id="zip" href="#" hidden>ZIP'i indir</a>
+        <div class="row" id="share" hidden>
+          <button type="button" class="ghost" id="copy">Linki kopyala</button>
+        </div>
+        <p class="hint">Bu sayfanın linki bu işe özel. Kaydedebilir, 1 saat içinde tekrar açabilirsin.</p>
+      </div>
+    </div>
+  </section>
   <p class="note">Sadece herkese açık gönderiler indirilebilir. Başkasının videosunu paylaşmadan önce sahibinden izin al.</p>
 </main>
 <script>
@@ -64,8 +100,7 @@ async function call(path, url) {
 
 $("f").addEventListener("submit", async e => {
   e.preventDefault();
-  key = $("key").value.trim();
-  try { localStorage.setItem("igdl_key", key); } catch (e) {}
+  saveKey();
   $("err").hidden = true; $("res").hidden = true;
   $("go").disabled = true; $("go").textContent = "Aranıyor…";
   try {
@@ -85,6 +120,62 @@ $("f").addEventListener("submit", async e => {
     $("go").disabled = false; $("go").textContent = "Getir";
   }
 });
+
+// --- sekmeler
+function tab(n){
+  $("t1").setAttribute("aria-selected", n===1); $("t2").setAttribute("aria-selected", n===2);
+  $("f").hidden = n!==1; $("res").hidden = true; $("err").hidden = true; $("bulk").hidden = n!==2;
+}
+$("t1").onclick = () => tab(1); $("t2").onclick = () => tab(2);
+if (!key) $("key").hidden = false;
+
+// --- toplu
+const hdr = () => key ? { "X-Access-Key": key } : {};
+let timer = null;
+function saveKey(){ key = $("key").value.trim(); try { localStorage.setItem("igdl_key", key); } catch (e) {} }
+
+$("bf").addEventListener("submit", async e => {
+  e.preventDefault(); saveKey();
+  $("berr").hidden = true; $("bgo").disabled = true;
+  try {
+    const r = await fetch("/api/bulk", { method: "POST", headers: { "Content-Type": "application/json", ...hdr() }, body: JSON.stringify({ urls: $("urls").value }) });
+    if (r.status === 401) { $("key").hidden = false; throw new Error("Erişim anahtarını gir."); }
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Hata");
+    if (j.skipped.length) { $("berr").textContent = j.skipped.length + " geçersiz link atlandı."; $("berr").hidden = false; }
+    history.replaceState(null, "", "?job=" + j.id);
+    watch(j.id);
+  } catch (er) { $("berr").textContent = er.message; $("berr").hidden = false; $("bgo").disabled = false; }
+});
+
+function watch(id){
+  $("job").hidden = false; clearInterval(timer);
+  const tick = async () => {
+    const r = await fetch("/api/bulk/" + id, { headers: hdr() });
+    if (r.status === 401) { $("key").hidden = false; clearInterval(timer); $("jstat").textContent = "Yukarıya erişim anahtarını gir."; return; }
+    const j = await r.json();
+    if (!r.ok) { clearInterval(timer); $("jstat").textContent = j.error; $("bgo").disabled = false; return; }
+    const ok = j.items.filter(i => i.status === "tamam").length;
+    $("jstat").textContent = j.done ? `Bitti: ${ok}/${j.items.length} video hazır` : `İndiriliyor… ${ok}/${j.items.length}`;
+    $("items").innerHTML = "";
+    for (const i of j.items) {
+      const li = document.createElement("li");
+      const u = document.createElement("span"); u.className = "u"; u.textContent = i.url.replace("https://www.instagram.com", "");
+      const st = document.createElement("span"); st.className = "st-" + i.status; st.textContent = i.status; if (i.error) st.title = i.error;
+      li.append(u, st); $("items").append(li);
+    }
+    if (j.done) {
+      clearInterval(timer); $("bgo").disabled = false; $("share").hidden = false;
+      if (j.has_zip) { const q = new URLSearchParams(); if (key) q.set("key", key); $("zip").href = `/api/bulk/${id}/zip?` + q; $("zip").hidden = false; }
+    }
+  };
+  tick(); timer = setInterval(tick, 3000);
+}
+$("copy").onclick = async () => { try { await navigator.clipboard.writeText(location.href); $("copy").textContent = "Kopyalandı ✓"; } catch (e) {} };
+
+const jobId = new URLSearchParams(location.search).get("job");
+if (jobId) { tab(2); watch(jobId); }
+$("key").addEventListener("change", () => { saveKey(); if (jobId) watch(jobId); });
 </script>
 </body>
 </html>
